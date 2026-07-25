@@ -1,0 +1,75 @@
+<canvas id="gl" aria-label="Interactive 3D model of the Vera Rubin VR-300 accelerator"></canvas>
+<svg id="leaders" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+
+<div id="macro-frame" aria-hidden="true">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="cross"></div><div class="cross h"></div>
+  <div id="scanline"></div>
+</div>
+
+<div id="brand">
+  <div class="wordmark">civo<span>.</span></div>
+  <div class="brand-div"></div>
+  <div class="brand-txt">
+    <b>Vera Rubin VR-300 “Halo”</b>
+    Interactive teardown · real-time WebGL2
+  </div>
+</div>
+
+<div id="stats" aria-hidden="true">
+  <div class="chip">MAG <b id="stat-mag">×4.2</b></div>
+  <div class="chip">TRIS <b id="stat-tris">—</b></div>
+  <div class="chip">RES <b id="stat-res">—</b></div>
+  <div class="chip">FPS <b id="stat-fps">—</b></div>
+</div>
+
+<div class="hud">
+  <div class="rail" id="rail-left"></div>
+  <div class="rail" id="rail-right"></div>
+
+  <aside id="panel" aria-live="polite">
+    <div class="p-head">
+      <div id="p-tag">01</div>
+      <div class="p-headtxt">
+        <span id="p-kicker">COMPUTE</span>
+        <h2 id="p-title">Twin-Reticle Compute Engine</h2>
+      </div>
+      <div id="p-index">01 / 08</div>
+    </div>
+    <div class="p-rule"></div>
+    <div id="p-body"></div>
+    <dl id="p-specs"></dl>
+    <div class="p-actions">
+      <div id="macro-hint"></div>
+      <button class="btn" id="btn-stage" type="button">DIVE TO CIRCUIT LEVEL ↦</button>
+      <button class="btn ghost" id="btn-back" type="button">← Back to overview <span style="opacity:.5">(esc)</span></button>
+    </div>
+  </aside>
+
+  <div id="hints">
+    <div><kbd>drag</kbd> orbit &nbsp; <kbd>scroll</kbd> zoom &nbsp; <kbd>shift</kbd>+drag pan</div>
+    <div><kbd>1</kbd>–<kbd>8</kbd> features &nbsp; <kbd>x</kbd> explode &nbsp; <kbd>m</kbd> macro &nbsp; <kbd>esc</kbd> back</div>
+    <div><kbd>←→↑↓</kbd> rotate &nbsp; <kbd>+</kbd><kbd>−</kbd> zoom &nbsp; <kbd>space</kbd> auto-orbit &nbsp; <kbd>h</kbd> hide UI</div>
+  </div>
+
+  <div id="dock">
+    <button class="btn ghost" id="btn-reset" type="button">Reset view</button>
+    <button class="btn ghost" id="btn-explode" type="button">Exploded</button>
+    <button class="btn ghost" id="btn-ui" type="button">Hide UI</button>
+  </div>
+
+  <div id="ribbon"></div>
+  <div id="tooltip"></div>
+</div>
+
+<div id="loader">
+  <div class="l-mark">civo<span>.</span></div>
+  <div class="l-bar"><i></i></div>
+  <div class="l-txt">Compiling shaders · building geometry</div>
+</div>
+
+<div id="fallback">
+  <h2>WebGL 2 required</h2>
+  <p id="fallback-msg"></p>
+</div>

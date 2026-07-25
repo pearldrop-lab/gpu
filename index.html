@@ -1,0 +1,3384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050607">
+<title>Vera Rubin VR-300 · Interactive 3D Teardown · Civo</title>
+<meta name="description" content="An interactive, real-time 3D teardown of the Vera Rubin VR-300 accelerator. Explore eight subsystems from board level down to the circuit. Built for Civo.">
+<meta property="og:title" content="Vera Rubin VR-300 — Interactive 3D Teardown">
+<meta property="og:description" content="Real-time WebGL2 teardown: twin-reticle dies, Dark Matter Cache, co-packaged optics, two-phase cooling. Zoom to circuit level.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23050607'/%3E%3Crect x='7' y='7' width='18' height='18' rx='3' fill='none' stroke='%23A3E635' stroke-width='2'/%3E%3Crect x='12.5' y='12.5' width='7' height='7' fill='%23A3E635'/%3E%3C/svg%3E">
+<style>
+:root{
+  --lime:#A3E635;
+  --lime-hot:#D4FF4E;
+  --lime-deep:#6FA815;
+  --bg:#050607;
+  --ink:#E8EFE2;
+  --muted:#8C9A86;
+  --line:rgba(163,230,53,.20);
+  --glass:rgba(9,12,10,.66);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  overflow:hidden;overscroll-behavior:none;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+canvas#gl{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:grab;touch-action:none}
+canvas#gl.grabbing{cursor:grabbing}
+
+/* ---------------------------------------------------------------- chrome */
+.hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+.hud > *{pointer-events:auto}
+body.ui-hidden .hud{opacity:0;transition:opacity .4s ease}
+
+#brand{
+  position:fixed;top:26px;left:30px;display:flex;align-items:center;gap:16px;
+  z-index:6;pointer-events:none;
+}
+.wordmark{
+  font-weight:800;font-size:26px;letter-spacing:-.045em;color:var(--lime);
+  line-height:1;text-transform:lowercase;
+}
+.wordmark span{color:var(--ink)}
+.brand-div{width:1px;height:26px;background:linear-gradient(180deg,transparent,var(--line),transparent)}
+.brand-txt{font-family:var(--mono);font-size:10.5px;letter-spacing:.24em;color:var(--muted);text-transform:uppercase;line-height:1.55}
+.brand-txt b{display:block;color:var(--ink);font-weight:600;letter-spacing:.18em}
+
+#stats{
+  position:fixed;top:26px;right:30px;display:flex;gap:8px;z-index:6;
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted);
+}
+.chip{
+  border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);
+  padding:6px 10px;border-radius:6px;backdrop-filter:blur(8px);white-space:nowrap;
+}
+.chip b{color:var(--lime);font-weight:600}
+
+/* ------------------------------------------------------------- callouts */
+#leaders{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;
+  transition:opacity .45s ease}
+.leader-line{fill:none;stroke:rgba(163,230,53,.42);stroke-width:1;
+  stroke-dasharray:3 3;animation:dash 14s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-120}}
+.leader-head{fill:var(--lime);opacity:.8}
+.leader-dot{fill:var(--lime-hot)}
+.leader-ring{fill:none;stroke:var(--lime);stroke-width:1;opacity:.5;
+  transform-box:fill-box;transform-origin:center;animation:ping 3.2s ease-out infinite}
+@keyframes ping{0%{r:4;opacity:.85}70%,100%{r:15;opacity:0}}
+.leader.hot .leader-line{stroke:var(--lime-hot);stroke-width:1.6;stroke-dasharray:none}
+.leader.hot .leader-head{opacity:1}
+
+.rail{position:fixed;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;
+  gap:12px;z-index:4;width:318px}
+#rail-left{left:30px;align-items:flex-start}
+#rail-right{right:30px;align-items:flex-end}
+
+.callout{
+  -webkit-appearance:none;appearance:none;text-align:left;font:inherit;color:inherit;
+  display:flex;gap:12px;width:100%;padding:13px 14px;cursor:pointer;
+  background:linear-gradient(180deg,rgba(14,18,14,.78),rgba(6,8,7,.72));
+  border:1px solid rgba(255,255,255,.075);border-left:2px solid rgba(163,230,53,.5);
+  border-radius:10px;backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:0 12px 34px -18px rgba(0,0,0,.95);
+  transition:transform .32s cubic-bezier(.2,.8,.2,1),border-color .3s,background .3s,box-shadow .3s;
+}
+#rail-left .callout{animation:slideinL .8s cubic-bezier(.2,.9,.2,1) backwards}
+#rail-right .callout{animation:slideinR .8s cubic-bezier(.2,.9,.2,1) backwards}
+@keyframes slideinL{from{opacity:0;transform:translateX(-18px)}}
+@keyframes slideinR{from{opacity:0;transform:translateX(18px)}}
+.callout:nth-child(1){animation-delay:.55s}
+.callout:nth-child(2){animation-delay:.68s}
+.callout:nth-child(3){animation-delay:.81s}
+.callout:nth-child(4){animation-delay:.94s}
+.callout:hover,.callout:focus-visible{
+  border-color:rgba(163,230,53,.55);border-left-color:var(--lime);
+  background:linear-gradient(180deg,rgba(24,32,18,.86),rgba(10,14,9,.8));
+  box-shadow:0 18px 44px -18px rgba(0,0,0,1),0 0 0 1px rgba(163,230,53,.12),
+             0 0 28px -8px rgba(163,230,53,.35);
+  outline:none;
+}
+#rail-left .callout:hover{transform:translateX(6px)}
+#rail-right .callout:hover{transform:translateX(-6px)}
+.c-tag{font-family:var(--mono);font-size:10px;color:var(--lime);opacity:.85;padding-top:2px;letter-spacing:.05em}
+.c-body{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.c-kicker{font-family:var(--mono);font-size:8.5px;letter-spacing:.26em;color:var(--lime-deep)}
+.c-title{font-size:14px;font-weight:650;letter-spacing:-.01em;line-height:1.25}
+.c-teaser{font-size:11.5px;color:var(--muted);line-height:1.42}
+.c-go{
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.2em;color:var(--lime);
+  display:flex;align-items:center;gap:5px;opacity:0;max-height:0;overflow:hidden;
+  transition:opacity .3s,max-height .3s;
+}
+.callout:hover .c-go,.callout:focus-visible .c-go{opacity:1;max-height:20px}
+.c-go svg{transition:transform .3s}
+.callout:hover .c-go svg{transform:translateX(3px)}
+
+body.inspecting .rail{opacity:0;transform:translateY(-50%) scale(.97);pointer-events:none;
+  transition:opacity .4s,transform .4s}
+.rail{transition:opacity .5s .1s,transform .5s .1s}
+
+/* ---------------------------------------------------------------- panel */
+#panel{
+  position:fixed;left:30px;top:50%;transform:translate(-118%,-50%);width:400px;max-width:calc(100vw - 60px);
+  max-height:min(78vh,720px);overflow:auto;z-index:7;
+  background:linear-gradient(180deg,rgba(12,16,12,.9),rgba(5,7,6,.88));
+  border:1px solid rgba(255,255,255,.08);border-left:2px solid var(--lime);
+  border-radius:14px;backdrop-filter:blur(22px) saturate(1.25);
+  box-shadow:0 40px 90px -40px #000,0 0 60px -30px rgba(163,230,53,.4);
+  transition:transform .72s cubic-bezier(.16,.9,.2,1),opacity .5s;opacity:0;
+  scrollbar-width:thin;scrollbar-color:var(--lime-deep) transparent;
+}
+body.inspecting #panel{transform:translate(0,-50%);opacity:1}
+#panel::-webkit-scrollbar{width:6px}
+#panel::-webkit-scrollbar-thumb{background:rgba(163,230,53,.3);border-radius:3px}
+.p-head{padding:22px 24px 0;display:flex;align-items:baseline;gap:12px}
+#p-tag{font-family:var(--mono);font-size:44px;font-weight:200;color:var(--lime);
+  line-height:.8;letter-spacing:-.04em;opacity:.9}
+.p-headtxt{flex:1;min-width:0}
+#p-kicker{font-family:var(--mono);font-size:9px;letter-spacing:.3em;color:var(--lime-deep);display:block}
+#p-title{font-size:23px;font-weight:680;letter-spacing:-.025em;margin:5px 0 0;line-height:1.15}
+#p-index{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.16em}
+.p-rule{height:1px;margin:18px 24px 0;background:linear-gradient(90deg,var(--lime),rgba(163,230,53,0))}
+#p-body{padding:16px 24px 0;font-size:13.5px;line-height:1.62;color:#C3CDBD}
+#p-body b{color:var(--lime-hot);font-weight:640}
+#p-body i{color:var(--ink);font-style:italic}
+#p-specs{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin:20px 0 0;
+  background:rgba(255,255,255,.055);border-top:1px solid rgba(255,255,255,.055);
+  border-bottom:1px solid rgba(255,255,255,.055)}
+.spec{background:rgba(6,9,6,.9);padding:11px 14px 12px}
+.spec dt{font-family:var(--mono);font-size:8.5px;letter-spacing:.2em;color:var(--muted);
+  text-transform:uppercase}
+.spec dd{margin:5px 0 0;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--lime)}
+.p-actions{padding:16px 24px 22px;display:flex;flex-direction:column;gap:10px}
+#macro-hint{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--muted);
+  line-height:1.6;text-transform:uppercase}
+
+.btn{
+  -webkit-appearance:none;appearance:none;font:inherit;cursor:pointer;
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  padding:12px 16px;border-radius:8px;transition:all .25s;
+  border:1px solid rgba(163,230,53,.35);background:rgba(163,230,53,.07);color:var(--lime);
+}
+.btn:hover{background:var(--lime);color:#08120A;border-color:var(--lime);
+  box-shadow:0 0 30px -6px rgba(163,230,53,.6)}
+.btn.ghost{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.07);box-shadow:none}
+.btn.on{background:var(--lime);color:#08120A}
+
+/* ------------------------------------------------------------- controls */
+#dock{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:8px;z-index:6;
+}
+#hints{
+  position:fixed;left:30px;bottom:26px;z-index:6;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.12em;color:var(--muted);line-height:1.9;text-transform:uppercase;
+  transition:opacity .4s;
+}
+#hints kbd{
+  font:inherit;border:1px solid rgba(255,255,255,.14);border-bottom-width:2px;
+  border-radius:4px;padding:1px 5px;color:var(--ink);background:rgba(255,255,255,.04);margin:0 1px;
+}
+body.inspecting #hints{opacity:.35}
+
+#ribbon{
+  position:fixed;right:30px;bottom:26px;z-index:6;display:flex;gap:0;
+  border:1px solid rgba(255,255,255,.07);border-radius:8px;overflow:hidden;
+  background:var(--glass);backdrop-filter:blur(12px);
+  transition:opacity .4s,transform .4s;
+}
+.hl{padding:9px 14px;border-right:1px solid rgba(255,255,255,.06);text-align:right}
+.hl:last-child{border-right:none}
+.hl b{display:block;font-size:16px;font-weight:650;letter-spacing:-.03em;color:var(--lime)}
+.hl span{font-family:var(--mono);font-size:8px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+body.inspecting #ribbon{opacity:0;transform:translateY(12px);pointer-events:none}
+
+#tooltip{
+  position:fixed;top:0;left:0;z-index:9;pointer-events:none;opacity:0;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  padding:6px 9px;border-radius:6px;border:1px solid var(--line);
+  background:rgba(6,9,6,.92);color:var(--lime);transition:opacity .18s;white-space:nowrap;
+}
+#tooltip.on{opacity:1}
+
+/* ---------------------------------------------------------- macro frame */
+#macro-frame{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity .6s}
+body.macro #macro-frame{opacity:1}
+.corner{position:absolute;width:34px;height:34px;border:1px solid rgba(163,230,53,.5)}
+.corner.tl{top:76px;left:76px;border-right:0;border-bottom:0}
+.corner.tr{top:76px;right:76px;border-left:0;border-bottom:0}
+.corner.bl{bottom:76px;left:76px;border-right:0;border-top:0}
+.corner.br{bottom:76px;right:76px;border-left:0;border-top:0}
+.cross{position:absolute;left:50%;top:50%;width:1px;height:26px;background:rgba(163,230,53,.35);
+  transform:translate(-50%,-50%)}
+.cross.h{width:26px;height:1px}
+#scanline{position:absolute;left:76px;right:76px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(163,230,53,.55),transparent);
+  animation:scan 5.5s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes scan{0%{top:76px;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:calc(100% - 76px);opacity:0}}
+
+/* -------------------------------------------------------------- loader */
+#loader{
+  position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  transition:opacity .9s ease,visibility .9s;
+}
+#loader.gone{opacity:0;visibility:hidden}
+.l-mark{font-weight:800;font-size:40px;letter-spacing:-.05em;color:var(--lime)}
+.l-mark span{color:var(--ink)}
+.l-bar{width:220px;height:2px;background:rgba(255,255,255,.09);overflow:hidden;border-radius:2px}
+.l-bar i{display:block;height:100%;width:40%;background:var(--lime);
+  animation:load 1.1s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes load{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
+.l-txt{font-family:var(--mono);font-size:9px;letter-spacing:.28em;color:var(--muted);text-transform:uppercase}
+
+#fallback{
+  position:fixed;inset:0;z-index:21;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;background:var(--bg);padding:40px;text-align:center;
+}
+#fallback h2{font-size:19px;font-weight:600;margin:0;color:var(--lime)}
+#fallback p{max-width:460px;color:var(--muted);font-size:13.5px;line-height:1.6;margin:0;
+  font-family:var(--mono);letter-spacing:.02em}
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width:1180px){
+  .rail{width:262px}
+  #rail-left{left:18px}#rail-right{right:18px}
+  .c-teaser{display:none}
+}
+@media (max-width:900px){
+  #leaders{display:none}
+  .rail{position:fixed;top:auto;bottom:78px;left:0;right:0;width:100%;transform:none;
+    flex-direction:row;overflow-x:auto;gap:10px;padding:4px 16px 8px;scrollbar-width:none}
+  .rail::-webkit-scrollbar{display:none}
+  #rail-right{display:none}
+  .callout{min-width:230px;width:auto;transform:none!important}
+  body.inspecting .rail{transform:translateY(30px)}
+  #panel{left:0;right:0;bottom:0;top:auto;width:100%;max-width:100%;transform:translateY(110%);
+    max-height:72vh;border-radius:16px 16px 0 0;border-left:1px solid rgba(255,255,255,.08);
+    border-top:2px solid var(--lime)}
+  body.inspecting #panel{transform:translateY(0)}
+  #ribbon,#hints{display:none}
+  #brand{top:16px;left:18px}
+  #stats{top:16px;right:18px}
+  .chip:nth-child(n+3){display:none}
+  #dock{bottom:14px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.12s!important}
+}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-label="Interactive 3D model of the Vera Rubin VR-300 accelerator"></canvas>
+<svg id="leaders" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+
+<div id="macro-frame" aria-hidden="true">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="cross"></div><div class="cross h"></div>
+  <div id="scanline"></div>
+</div>
+
+<div id="brand">
+  <div class="wordmark">civo<span>.</span></div>
+  <div class="brand-div"></div>
+  <div class="brand-txt">
+    <b>Vera Rubin VR-300 “Halo”</b>
+    Interactive teardown · real-time WebGL2
+  </div>
+</div>
+
+<div id="stats" aria-hidden="true">
+  <div class="chip">MAG <b id="stat-mag">×4.2</b></div>
+  <div class="chip">TRIS <b id="stat-tris">—</b></div>
+  <div class="chip">RES <b id="stat-res">—</b></div>
+  <div class="chip">FPS <b id="stat-fps">—</b></div>
+</div>
+
+<div class="hud">
+  <div class="rail" id="rail-left"></div>
+  <div class="rail" id="rail-right"></div>
+
+  <aside id="panel" aria-live="polite">
+    <div class="p-head">
+      <div id="p-tag">01</div>
+      <div class="p-headtxt">
+        <span id="p-kicker">COMPUTE</span>
+        <h2 id="p-title">Twin-Reticle Compute Engine</h2>
+      </div>
+      <div id="p-index">01 / 08</div>
+    </div>
+    <div class="p-rule"></div>
+    <div id="p-body"></div>
+    <dl id="p-specs"></dl>
+    <div class="p-actions">
+      <div id="macro-hint"></div>
+      <button class="btn" id="btn-stage" type="button">DIVE TO CIRCUIT LEVEL ↦</button>
+      <button class="btn ghost" id="btn-back" type="button">← Back to overview <span style="opacity:.5">(esc)</span></button>
+    </div>
+  </aside>
+
+  <div id="hints">
+    <div><kbd>drag</kbd> orbit &nbsp; <kbd>scroll</kbd> zoom &nbsp; <kbd>shift</kbd>+drag pan</div>
+    <div><kbd>1</kbd>–<kbd>8</kbd> features &nbsp; <kbd>x</kbd> explode &nbsp; <kbd>m</kbd> macro &nbsp; <kbd>esc</kbd> back</div>
+    <div><kbd>←→↑↓</kbd> rotate &nbsp; <kbd>+</kbd><kbd>−</kbd> zoom &nbsp; <kbd>space</kbd> auto-orbit &nbsp; <kbd>h</kbd> hide UI</div>
+  </div>
+
+  <div id="dock">
+    <button class="btn ghost" id="btn-reset" type="button">Reset view</button>
+    <button class="btn ghost" id="btn-explode" type="button">Exploded</button>
+    <button class="btn ghost" id="btn-ui" type="button">Hide UI</button>
+  </div>
+
+  <div id="ribbon"></div>
+  <div id="tooltip"></div>
+</div>
+
+<div id="loader">
+  <div class="l-mark">civo<span>.</span></div>
+  <div class="l-bar"><i></i></div>
+  <div class="l-txt">Compiling shaders · building geometry</div>
+</div>
+
+<div id="fallback">
+  <h2>WebGL 2 required</h2>
+  <p id="fallback-msg"></p>
+</div>
+
+<script>
+"use strict";
+(function () {
+/* ==== 01-math.js ======================================================= */
+/* ============================================================================
+   01 · MATH — minimal column-major mat4 / vec3 kit (no dependencies)
+   ========================================================================== */
+const M4 = {
+  create() {
+    return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  },
+  identity(o) {
+    o[0] = 1; o[1] = 0; o[2] = 0; o[3] = 0;
+    o[4] = 0; o[5] = 1; o[6] = 0; o[7] = 0;
+    o[8] = 0; o[9] = 0; o[10] = 1; o[11] = 0;
+    o[12] = 0; o[13] = 0; o[14] = 0; o[15] = 1;
+    return o;
+  },
+  mul(o, a, b) {
+    const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3],
+      a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7],
+      a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11],
+      a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+    for (let i = 0; i < 4; i++) {
+      const b0 = b[i * 4], b1 = b[i * 4 + 1], b2 = b[i * 4 + 2], b3 = b[i * 4 + 3];
+      o[i * 4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+      o[i * 4 + 1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+      o[i * 4 + 2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+      o[i * 4 + 3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+    }
+    return o;
+  },
+  perspective(o, fovy, aspect, near, far) {
+    const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+    o[0] = f / aspect; o[1] = 0; o[2] = 0; o[3] = 0;
+    o[4] = 0; o[5] = f; o[6] = 0; o[7] = 0;
+    o[8] = 0; o[9] = 0; o[10] = (far + near) * nf; o[11] = -1;
+    o[12] = 0; o[13] = 0; o[14] = 2 * far * near * nf; o[15] = 0;
+    return o;
+  },
+  ortho(o, l, r, b, t, n, f) {
+    const lr = 1 / (l - r), bt = 1 / (b - t), nf = 1 / (n - f);
+    o[0] = -2 * lr; o[1] = 0; o[2] = 0; o[3] = 0;
+    o[4] = 0; o[5] = -2 * bt; o[6] = 0; o[7] = 0;
+    o[8] = 0; o[9] = 0; o[10] = 2 * nf; o[11] = 0;
+    o[12] = (l + r) * lr; o[13] = (t + b) * bt; o[14] = (f + n) * nf; o[15] = 1;
+    return o;
+  },
+  lookAt(o, eye, center, up) {
+    let z0 = eye[0] - center[0], z1 = eye[1] - center[1], z2 = eye[2] - center[2];
+    let len = Math.hypot(z0, z1, z2) || 1;
+    z0 /= len; z1 /= len; z2 /= len;
+    let x0 = up[1] * z2 - up[2] * z1, x1 = up[2] * z0 - up[0] * z2, x2 = up[0] * z1 - up[1] * z0;
+    len = Math.hypot(x0, x1, x2);
+    if (!len) { x0 = 1; x1 = 0; x2 = 0; } else { x0 /= len; x1 /= len; x2 /= len; }
+    const y0 = z1 * x2 - z2 * x1, y1 = z2 * x0 - z0 * x2, y2 = z0 * x1 - z1 * x0;
+    o[0] = x0; o[1] = y0; o[2] = z0; o[3] = 0;
+    o[4] = x1; o[5] = y1; o[6] = z1; o[7] = 0;
+    o[8] = x2; o[9] = y2; o[10] = z2; o[11] = 0;
+    o[12] = -(x0 * eye[0] + x1 * eye[1] + x2 * eye[2]);
+    o[13] = -(y0 * eye[0] + y1 * eye[1] + y2 * eye[2]);
+    o[14] = -(z0 * eye[0] + z1 * eye[1] + z2 * eye[2]);
+    o[15] = 1;
+    return o;
+  },
+  translation(o, x, y, z) {
+    M4.identity(o); o[12] = x; o[13] = y; o[14] = z; return o;
+  },
+  scaling(o, x, y, z) {
+    M4.identity(o); o[0] = x; o[5] = y; o[10] = z; return o;
+  },
+  rotX(o, r) {
+    const c = Math.cos(r), s = Math.sin(r);
+    M4.identity(o); o[5] = c; o[6] = s; o[9] = -s; o[10] = c; return o;
+  },
+  rotY(o, r) {
+    const c = Math.cos(r), s = Math.sin(r);
+    M4.identity(o); o[0] = c; o[2] = -s; o[8] = s; o[10] = c; return o;
+  },
+  rotZ(o, r) {
+    const c = Math.cos(r), s = Math.sin(r);
+    M4.identity(o); o[0] = c; o[1] = s; o[4] = -s; o[5] = c; return o;
+  },
+  invert(o, m) {
+    const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3],
+      a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7],
+      a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11],
+      a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
+    const b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10,
+      b02 = a00 * a13 - a03 * a10, b03 = a01 * a12 - a02 * a11,
+      b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12,
+      b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30,
+      b08 = a20 * a33 - a23 * a30, b09 = a21 * a32 - a22 * a31,
+      b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
+    let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+    if (!det) return M4.identity(o);
+    det = 1 / det;
+    o[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+    o[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+    o[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+    o[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+    o[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+    o[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+    o[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+    o[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+    o[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+    o[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+    o[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+    o[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+    o[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+    o[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+    o[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+    o[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+    return o;
+  },
+  xform(out, m, p) {
+    const x = p[0], y = p[1], z = p[2];
+    const w = m[3] * x + m[7] * y + m[11] * z + m[15] || 1;
+    out[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
+    out[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
+    out[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
+    return out;
+  },
+  /** Project a world point to clip space, returns [x, y, z, w]. */
+  project(out, m, p) {
+    const x = p[0], y = p[1], z = p[2];
+    out[0] = m[0] * x + m[4] * y + m[8] * z + m[12];
+    out[1] = m[1] * x + m[5] * y + m[9] * z + m[13];
+    out[2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+    out[3] = m[3] * x + m[7] * y + m[11] * z + m[15];
+    return out;
+  },
+};
+
+const V3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  scale: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
+};
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+/** Framerate-independent exponential damping. */
+const damp = (a, b, lambda, dt) => lerp(a, b, 1 - Math.exp(-lambda * dt));
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOutExpo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+
+
+/* ==== 02-geom.js ======================================================= */
+/* ============================================================================
+   02 · GEOMETRY — procedural primitives + a single interleaved mega-buffer.
+
+   Everything in the scene is baked into ONE vertex buffer. Per-vertex we carry
+   a "info" vec4 = (materialId, partId, detailScale, seed) so a single draw call
+   can render dozens of physically different surfaces, and so the vertex shader
+   can offset / dissolve individual parts (explode view, cutaways) by indexing a
+   small uniform array. One draw call for the whole GPU; one for shadows; one
+   for the picking buffer.
+   ========================================================================== */
+
+/** Build a TRS matrix. rot is XYZ euler in radians. */
+function xf(t = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1]) {
+  const [rx, ry, rz] = r;
+  const cx = Math.cos(rx), sx = Math.sin(rx);
+  const cy = Math.cos(ry), sy = Math.sin(ry);
+  const cz = Math.cos(rz), sz = Math.sin(rz);
+  // R = Rz * Ry * Rx  (column-major)
+  const m = new Float32Array(16);
+  const m00 = cz * cy, m01 = cz * sy * sx - sz * cx, m02 = cz * sy * cx + sz * sx;
+  const m10 = sz * cy, m11 = sz * sy * sx + cz * cx, m12 = sz * sy * cx - cz * sx;
+  const m20 = -sy, m21 = cy * sx, m22 = cy * cx;
+  m[0] = m00 * s[0]; m[1] = m10 * s[0]; m[2] = m20 * s[0]; m[3] = 0;
+  m[4] = m01 * s[1]; m[5] = m11 * s[1]; m[6] = m21 * s[1]; m[7] = 0;
+  m[8] = m02 * s[2]; m[9] = m12 * s[2]; m[10] = m22 * s[2]; m[11] = 0;
+  m[12] = t[0]; m[13] = t[1]; m[14] = t[2]; m[15] = 1;
+  return m;
+}
+
+/* ---------------------------------------------------------------- primitives */
+
+/** Axis-aligned box centred on the origin. Per-face UVs run 0..1. */
+function box(w, h, d) {
+  const x = w / 2, y = h / 2, z = d / 2;
+  const P = [], N = [], U = [], I = [];
+  const faces = [
+    { n: [1, 0, 0], o: [x, 0, 0], u: [0, 0, -1], v: [0, 1, 0], su: d, sv: h },
+    { n: [-1, 0, 0], o: [-x, 0, 0], u: [0, 0, 1], v: [0, 1, 0], su: d, sv: h },
+    { n: [0, 1, 0], o: [0, y, 0], u: [1, 0, 0], v: [0, 0, 1], su: w, sv: d },
+    { n: [0, -1, 0], o: [0, -y, 0], u: [1, 0, 0], v: [0, 0, -1], su: w, sv: d },
+    { n: [0, 0, 1], o: [0, 0, z], u: [1, 0, 0], v: [0, 1, 0], su: w, sv: h },
+    { n: [0, 0, -1], o: [0, 0, -z], u: [-1, 0, 0], v: [0, 1, 0], su: w, sv: h },
+  ];
+  for (const f of faces) {
+    const base = P.length / 3;
+    for (let j = 0; j < 2; j++) {
+      for (let i = 0; i < 2; i++) {
+        const a = (i - 0.5) * f.su, b = (j - 0.5) * f.sv;
+        P.push(f.o[0] + f.u[0] * a + f.v[0] * b,
+          f.o[1] + f.u[1] * a + f.v[1] * b,
+          f.o[2] + f.u[2] * a + f.v[2] * b);
+        N.push(f.n[0], f.n[1], f.n[2]);
+        U.push(i, j);
+      }
+    }
+    I.push(base, base + 1, base + 3, base, base + 3, base + 2);
+  }
+  return { P, N, U, I };
+}
+
+/** Box with rounded edges & corners — the workhorse for anything machined. */
+function roundedBox(w, h, d, r, seg = 3) {
+  r = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
+  const half = [w / 2, h / 2, d / 2];
+  const P = [], N = [], U = [], I = [];
+  // Sample positions along one axis: dense at the rounded ends, one flat span.
+  const coords = (hh) => {
+    const a = [];
+    for (let i = 0; i <= seg; i++) a.push(-hh + r * (1 - Math.cos((i / seg) * Math.PI / 2)));
+    for (let i = 0; i <= seg; i++) a.push(hh - r + r * Math.sin((i / seg) * Math.PI / 2));
+    return a;
+  };
+  const axes = [
+    { n: 0, u: 2, v: 1, s: 1 }, { n: 0, u: 2, v: 1, s: -1 },
+    { n: 1, u: 0, v: 2, s: 1 }, { n: 1, u: 0, v: 2, s: -1 },
+    { n: 2, u: 0, v: 1, s: 1 }, { n: 2, u: 0, v: 1, s: -1 },
+  ];
+  for (const ax of axes) {
+    const cu = coords(half[ax.u]), cv = coords(half[ax.v]);
+    const base = P.length / 3;
+    for (let j = 0; j < cv.length; j++) {
+      for (let i = 0; i < cu.length; i++) {
+        const a = ax.s > 0 ? cu[i] : -cu[i], b = cv[j];
+        // Point on the true box face, and the same point clamped inside the
+        // rounding inset — the offset between them is the surface normal.
+        const p = [0, 0, 0], q = [0, 0, 0];
+        p[ax.n] = ax.s * half[ax.n]; q[ax.n] = ax.s * (half[ax.n] - r);
+        p[ax.u] = a; q[ax.u] = clamp(a, -(half[ax.u] - r), half[ax.u] - r);
+        p[ax.v] = b; q[ax.v] = clamp(b, -(half[ax.v] - r), half[ax.v] - r);
+        const dv = [p[0] - q[0], p[1] - q[1], p[2] - q[2]];
+        const l = Math.hypot(dv[0], dv[1], dv[2]) || 1;
+        const n = [dv[0] / l, dv[1] / l, dv[2] / l];
+        P.push(q[0] + n[0] * r, q[1] + n[1] * r, q[2] + n[2] * r);
+        N.push(n[0], n[1], n[2]);
+        U.push(i / (cu.length - 1), j / (cv.length - 1));
+      }
+    }
+    const W = cu.length;
+    for (let j = 0; j < cv.length - 1; j++) {
+      for (let i = 0; i < cu.length - 1; i++) {
+        const k = base + j * W + i;
+        I.push(k, k + 1, k + W + 1, k, k + W + 1, k + W);
+      }
+    }
+  }
+  return { P, N, U, I };
+}
+
+/** Y-axis cylinder centred on the origin. */
+function cylinder(rTop, rBot, h, seg = 20, caps = true) {
+  const P = [], N = [], U = [], I = [];
+  const base = 0;
+  for (let j = 0; j <= 1; j++) {
+    for (let i = 0; i <= seg; i++) {
+      const a = (i / seg) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      const rr = j ? rTop : rBot;
+      P.push(c * rr, (j - 0.5) * h, s * rr);
+      const slope = (rBot - rTop) / h;
+      const n = [c, slope, s], l = Math.hypot(n[0], n[1], n[2]);
+      N.push(n[0] / l, n[1] / l, n[2] / l);
+      U.push(i / seg, j);
+    }
+  }
+  for (let i = 0; i < seg; i++) {
+    const k = base + i;
+    I.push(k, k + seg + 1, k + seg + 2, k, k + seg + 2, k + 1);
+  }
+  if (caps) {
+    for (let j = 0; j <= 1; j++) {
+      const rr = j ? rTop : rBot, y = (j - 0.5) * h, ny = j ? 1 : -1;
+      const c0 = P.length / 3;
+      P.push(0, y, 0); N.push(0, ny, 0); U.push(0.5, 0.5);
+      for (let i = 0; i <= seg; i++) {
+        const a = (i / seg) * Math.PI * 2;
+        P.push(Math.cos(a) * rr, y, Math.sin(a) * rr);
+        N.push(0, ny, 0);
+        U.push(0.5 + Math.cos(a) * 0.5, 0.5 + Math.sin(a) * 0.5);
+      }
+      for (let i = 0; i < seg; i++) {
+        if (j) I.push(c0, c0 + 1 + i, c0 + 2 + i);
+        else I.push(c0, c0 + 2 + i, c0 + 1 + i);
+      }
+    }
+  }
+  return { P, N, U, I };
+}
+
+/** Swept tube through a polyline — optical fibres, heatpipes, cabling. */
+function tube(path, r, seg = 10) {
+  const P = [], N = [], U = [], I = [];
+  const n = path.length;
+  let up = [0, 1, 0];
+  for (let k = 0; k < n; k++) {
+    const p = path[k];
+    const prev = path[Math.max(0, k - 1)], next = path[Math.min(n - 1, k + 1)];
+    const t = V3.norm(V3.sub(next, prev));
+    let side = V3.norm([up[1] * t[2] - up[2] * t[1], up[2] * t[0] - up[0] * t[2], up[0] * t[1] - up[1] * t[0]]);
+    if (!isFinite(side[0]) || V3.len(side) < 1e-4) side = [1, 0, 0];
+    const nrm = V3.norm([t[1] * side[2] - t[2] * side[1], t[2] * side[0] - t[0] * side[2], t[0] * side[1] - t[1] * side[0]]);
+    up = nrm;
+    const rr = typeof r === 'function' ? r(k / (n - 1)) : r;
+    for (let i = 0; i <= seg; i++) {
+      const a = (i / seg) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      const dir = [side[0] * c + nrm[0] * s, side[1] * c + nrm[1] * s, side[2] * c + nrm[2] * s];
+      P.push(p[0] + dir[0] * rr, p[1] + dir[1] * rr, p[2] + dir[2] * rr);
+      N.push(dir[0], dir[1], dir[2]);
+      U.push(i / seg, k / (n - 1));
+    }
+  }
+  const W = seg + 1;
+  for (let k = 0; k < n - 1; k++) {
+    for (let i = 0; i < seg; i++) {
+      const a = k * W + i;
+      I.push(a, a + W, a + W + 1, a, a + W + 1, a + 1);
+    }
+  }
+  return { P, N, U, I };
+}
+
+/** Flat XZ plane, subdivided. */
+function plane(w, d, sx = 1, sz = 1) {
+  const P = [], N = [], U = [], I = [];
+  for (let j = 0; j <= sz; j++) {
+    for (let i = 0; i <= sx; i++) {
+      P.push((i / sx - 0.5) * w, 0, (j / sz - 0.5) * d);
+      N.push(0, 1, 0);
+      U.push(i / sx, j / sz);
+    }
+  }
+  for (let j = 0; j < sz; j++) {
+    for (let i = 0; i < sx; i++) {
+      const k = j * (sx + 1) + i;
+      I.push(k, k + sx + 1, k + sx + 2, k, k + sx + 2, k + 1);
+    }
+  }
+  return { P, N, U, I };
+}
+
+/* ------------------------------------------------------------------ builder */
+
+class MeshBuilder {
+  constructor() {
+    this.P = []; this.N = []; this.U = []; this.F = []; this.I = [];
+    this.bounds = { min: [1e9, 1e9, 1e9], max: [-1e9, -1e9, -1e9] };
+  }
+
+  /**
+   * Append a primitive.
+   * @param g   primitive {P,N,U,I}
+   * @param m   4x4 transform (or null)
+   * @param mat material id  (see MAT.* in the shader)
+   * @param part part id — drives explode offset / dissolve / picking
+   * @param det detail scale hint handed to the procedural shaders
+   * @param seed per-instance random seed
+   */
+  add(g, m, mat, part, det = 1, seed = 0) {
+    const base = this.P.length / 3;
+    const nm = m ? M4.invert(M4.create(), m) : null; // normals: transpose(inverse)
+    for (let i = 0; i < g.P.length; i += 3) {
+      let x = g.P[i], y = g.P[i + 1], z = g.P[i + 2];
+      let nx = g.N[i], ny = g.N[i + 1], nz = g.N[i + 2];
+      if (m) {
+        const px = m[0] * x + m[4] * y + m[8] * z + m[12];
+        const py = m[1] * x + m[5] * y + m[9] * z + m[13];
+        const pz = m[2] * x + m[6] * y + m[10] * z + m[14];
+        x = px; y = py; z = pz;
+        const ax = nm[0] * nx + nm[1] * ny + nm[2] * nz;
+        const ay = nm[4] * nx + nm[5] * ny + nm[6] * nz;
+        const az = nm[8] * nx + nm[9] * ny + nm[10] * nz;
+        const l = Math.hypot(ax, ay, az) || 1;
+        nx = ax / l; ny = ay / l; nz = az / l;
+      }
+      this.P.push(x, y, z);
+      this.N.push(nx, ny, nz);
+      this.F.push(mat, part, det, seed);
+      const b = this.bounds;
+      b.min[0] = Math.min(b.min[0], x); b.min[1] = Math.min(b.min[1], y); b.min[2] = Math.min(b.min[2], z);
+      b.max[0] = Math.max(b.max[0], x); b.max[1] = Math.max(b.max[1], y); b.max[2] = Math.max(b.max[2], z);
+    }
+    for (let i = 0; i < g.U.length; i++) this.U.push(g.U[i]);
+    for (let i = 0; i < g.I.length; i++) this.I.push(base + g.I[i]);
+    return this;
+  }
+
+  get triCount() { return this.I.length / 3; }
+
+  /**
+   * Normals are the source of truth; winding is derived from them.
+   * Every primitive here is generated from an explicit outward normal, but the
+   * index order that falls out of a (u,v) parameter grid only agrees with that
+   * normal when u × v happens to point along it — which it does not for half
+   * the faces of a box. Rather than hand-verify six cross products per
+   * primitive, flip any triangle whose geometric normal opposes its vertex
+   * normals. Back-face culling and two-sided lighting then behave everywhere.
+   */
+  fixWinding() {
+    const P = this.P, N = this.N, I = this.I;
+    let flipped = 0;
+    for (let t = 0; t < I.length; t += 3) {
+      const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+      const e1x = P[b] - P[a], e1y = P[b + 1] - P[a + 1], e1z = P[b + 2] - P[a + 2];
+      const e2x = P[c] - P[a], e2y = P[c + 1] - P[a + 1], e2z = P[c + 2] - P[a + 2];
+      const gx = e1y * e2z - e1z * e2y;
+      const gy = e1z * e2x - e1x * e2z;
+      const gz = e1x * e2y - e1y * e2x;
+      const nx = N[a] + N[b] + N[c], ny = N[a + 1] + N[b + 1] + N[c + 1],
+        nz = N[a + 2] + N[b + 2] + N[c + 2];
+      if (gx * nx + gy * ny + gz * nz < 0) {
+        const tmp = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = tmp;
+        flipped++;
+      }
+    }
+    this.flipped = flipped;
+    return flipped;
+  }
+
+  /** Interleave into one Float32Array: pos3 nrm3 uv2 info4 = 12 floats/vertex. */
+  pack() {
+    const n = this.P.length / 3;
+    const v = new Float32Array(n * 12);
+    for (let i = 0; i < n; i++) {
+      const o = i * 12;
+      v[o] = this.P[i * 3]; v[o + 1] = this.P[i * 3 + 1]; v[o + 2] = this.P[i * 3 + 2];
+      v[o + 3] = this.N[i * 3]; v[o + 4] = this.N[i * 3 + 1]; v[o + 5] = this.N[i * 3 + 2];
+      v[o + 6] = this.U[i * 2]; v[o + 7] = this.U[i * 2 + 1];
+      v[o + 8] = this.F[i * 4]; v[o + 9] = this.F[i * 4 + 1];
+      v[o + 10] = this.F[i * 4 + 2]; v[o + 11] = this.F[i * 4 + 3];
+    }
+    const idx = this.P.length / 3 > 65535
+      ? new Uint32Array(this.I) : new Uint16Array(this.I);
+    return { vertices: v, indices: idx, vertexCount: n };
+  }
+}
+
+
+/* ==== 03-shaders-scene.js ============================================== */
+/* ============================================================================
+   03 · SCENE SHADERS — GLSL ES 3.00
+   A single über-shader renders every surface on the card. Materials are
+   *computed*, not textured: PCB routing, die floorplans, HBM laminations,
+   micro-channel copper, photonic waveguides and BGA micro-bumps are all
+   evaluated analytically, so the camera can push in to sub-millimetre macro
+   distances and the detail keeps resolving instead of turning to mush.
+   Frequency-aware fades (fwidth) keep it alias-free at every zoom level.
+   ========================================================================== */
+
+const GLSL_COMMON = /* glsl */`
+#define PI 3.14159265359
+const vec3 LIME     = vec3(0.639, 0.902, 0.208);
+const vec3 LIME_HOT = vec3(0.827, 1.000, 0.306);
+const vec3 CYAN     = vec3(0.278, 0.784, 0.816);
+
+float hash11(float p){ p=fract(p*0.1031); p*=p+33.33; p*=p+p; return fract(p); }
+float hash21(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+vec2  hash22(vec2 p){ vec3 p3=fract(vec3(p.xyx)*vec3(0.1031,0.1030,0.0973)); p3+=dot(p3,p3.yzx+33.33); return fract((p3.xx+p3.yz)*p3.zy); }
+
+float vnoise(vec2 p){
+  vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash21(i),hash21(i+vec2(1,0)),f.x),
+             mix(hash21(i+vec2(0,1)),hash21(i+vec2(1,1)),f.x), f.y);
+}
+float fbm(vec2 p){
+  float a=0.5, s=0.0;
+  for(int i=0;i<5;i++){ s+=a*vnoise(p); p*=2.02; a*=0.5; }
+  return s;
+}
+/* Fade out detail finer than a pixel — procedural mip-mapping. */
+float lodFade(float feature, vec2 uv){
+  float px = max(fwidth(uv.x), fwidth(uv.y)) + 1e-9;
+  return smoothstep(px*1.5, px*4.0, feature);
+}
+float aastep(float e, float x){ float w = fwidth(x)*0.8 + 1e-6; return smoothstep(e-w, e+w, x); }
+/* Screen-space-constant grid lines with spacing S. */
+float gridLine(vec2 p, float S){
+  vec2 q = p/S;
+  vec2 g = abs(fract(q - 0.5) - 0.5) / max(fwidth(q), vec2(1e-6));
+  return 1.0 - min(min(g.x, g.y), 1.0);
+}
+float rect(vec2 p, vec2 h){ vec2 d=abs(p)-h; return min(max(d.x,d.y),0.0)+length(max(d,0.0)); }
+`;
+
+/* -------------------------------------------------------------------------- */
+
+const SCENE_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 a_pos;
+layout(location=1) in vec3 a_nrm;
+layout(location=2) in vec2 a_uv;
+layout(location=3) in vec4 a_info;   // matId, partId, detailScale, seed
+
+uniform mat4 u_viewProj;
+uniform vec4 u_part[32];             // xyz = explode offset, w = alpha/dissolve
+uniform vec4 u_partFx[32];           // x = highlight, y = reserved
+
+out vec3 v_wpos;
+out vec3 v_nrm;
+out vec2 v_uv;
+out vec4 v_info;
+out float v_alpha;
+out float v_hl;
+
+void main(){
+  int pid = int(a_info.y + 0.5);
+  vec4 pp  = u_part[pid];
+  vec3 wp  = a_pos + pp.xyz;
+  v_wpos = wp;
+  v_nrm  = normalize(a_nrm);
+  v_uv   = a_uv;
+  v_info = a_info;
+  v_alpha = pp.w;
+  v_hl = u_partFx[pid].x;
+  gl_Position = u_viewProj * vec4(wp, 1.0);
+}`;
+
+/* -------------------------------------------------------------------------- */
+
+const SCENE_FS = `#version 300 es
+precision highp float;
+precision highp sampler2DShadow;
+
+in vec3 v_wpos;
+in vec3 v_nrm;
+in vec2 v_uv;
+in vec4 v_info;
+in float v_alpha;
+in float v_hl;
+
+uniform vec3  u_camPos;
+uniform float u_time;
+uniform mat4  u_lightVP;
+uniform sampler2D u_shadow;
+uniform float u_shadowTexel;
+uniform float u_xrayAmt;     // cutaway "energised" edge amount
+uniform vec3  u_focusPoint;  // macro focus centre (world)
+uniform float u_focusAmt;
+
+layout(location=0) out vec4 o_color;
+
+${GLSL_COMMON}
+
+/* ---------------------------------------------------------- material ids */
+#define M_PCB        0
+#define M_SUBSTRATE  1
+#define M_DIE        2
+#define M_HBM        3
+#define M_ANODIZED   4
+#define M_ALUM       5
+#define M_COPPER     6
+#define M_GOLD       7
+#define M_PLASTIC    8
+#define M_LIME       9
+#define M_FIBER     10
+#define M_CERAMIC   11
+#define M_CHROME    12
+#define M_PHOTONIC  13
+#define M_SOLDER    14
+#define M_GRAPHITE  15
+#define M_FLOOR     16
+#define M_SCHED     17
+#define M_SECURITY  18
+#define M_CHANNEL   19
+#define M_INTERPOSER 20
+#define M_CACHE     21
+
+/* --------------------------------------------------------- bump plumbing */
+vec3 g_bumpN;
+float g_h;
+vec3 applyBump(vec3 n, float h, float strength){
+  vec3 dpx = dFdx(v_wpos), dpy = dFdy(v_wpos);
+  float dhx = dFdx(h), dhy = dFdy(h);
+  vec3 r1 = cross(dpy, n), r2 = cross(n, dpx);
+  float det = dot(dpx, r1);
+  vec3 grad = (r1*dhx + r2*dhy) / (abs(det) < 1e-9 ? 1e-9 : det);
+  return normalize(n - strength*grad);
+}
+
+/* ------------------------------------------------------------- patterns */
+/* Orthogonal PCB routing: cells hold H/V wires plus the occasional via. */
+float traceLayer(vec2 p, float w, float sd, out float via, out float pad){
+  vec2 id = floor(p), f = fract(p);
+  float hh = hash21(id + sd), hv = hash21(id + sd + 31.7), hd = hash21(id + sd + 7.13);
+  float m = 0.0; via = 0.0; pad = 0.0;
+  if(hh > 0.42) m = max(m, 1.0 - smoothstep(w, w + 0.02, abs(f.y - 0.5)));
+  if(hv > 0.52) m = max(m, 1.0 - smoothstep(w, w + 0.02, abs(f.x - 0.5)));
+  if(hd > 0.86 && hh > 0.42){
+    float d = length(f - 0.5);
+    pad = 1.0 - smoothstep(0.16, 0.185, d);
+    via = 1.0 - smoothstep(0.06, 0.075, d);
+    m = max(m, pad);
+  }
+  return m;
+}
+
+/* Rows of micro-cells: what a logic block looks like under a microscope. */
+float logicCells(vec2 uv, float density){
+  vec2 g = uv * density;
+  vec2 id = floor(g), f = fract(g);
+  float row = hash21(vec2(id.y, 3.0));
+  float on = step(0.35, hash21(id + row*17.0));
+  float cell = (1.0 - smoothstep(0.30, 0.40, abs(f.x - 0.5))) *
+               (1.0 - smoothstep(0.32, 0.42, abs(f.y - 0.5)));
+  return cell * on;
+}
+
+/* --------------------------------------------------------------- MATERIAL */
+void material(int id, vec3 op, vec2 uv, float det, float seed, vec3 n,
+              out vec3 albedo, out float rough, out float metal, out vec3 emis){
+  albedo = vec3(0.5); rough = 0.5; metal = 0.0; emis = vec3(0.0);
+  float t = u_time;
+  float h = 0.0;                     // height field for bump
+  float bumpStr = 0.0;
+  vec2 wuv = op.xz;                  // world-planar coords (cm)
+
+  if(id == M_PCB){
+    vec2 p = wuv * 2.2;
+    float via1, pad1, via2, pad2;
+    float t1 = traceLayer(p, 0.055, seed, via1, pad1);
+    float t2 = traceLayer(p*3.3 + 11.0, 0.07, seed + 5.0, via2, pad2);
+    float f1 = lodFade(0.09, wuv), f2 = lodFade(0.03, wuv);
+    t1 *= f1; t2 *= f2*0.75;
+    float tr = max(t1, t2);
+    vec3 mask = vec3(0.020, 0.052, 0.030);                 // dark green solder mask
+    vec3 buried = mix(mask, vec3(0.055, 0.085, 0.045), tr); // copper glowing under mask
+    albedo = buried;
+    // Exposed gold pads
+    float exposed = max(via1*f1, via2*f2);
+    albedo = mix(albedo, vec3(0.72, 0.55, 0.20), exposed);
+    metal = exposed*0.9;
+    rough = mix(0.34, 0.28, exposed);
+    // Silkscreen: white outlines + lime marks
+    vec2 sg = wuv*0.55;
+    float silk = step(0.93, hash21(floor(sg))) * (1.0 - smoothstep(0.02, 0.05, abs(fract(sg.y)-0.5)));
+    silk *= lodFade(0.05, wuv);
+    albedo = mix(albedo, vec3(0.55), silk*0.8);
+    // Woven glass fibre weave, only visible in extreme macro
+    float weave = sin(wuv.x*260.0)*sin(wuv.y*260.0);
+    h = tr*0.6 + exposed*0.4 + weave*0.05*lodFade(0.006, wuv);
+    bumpStr = 0.035;
+    rough = mix(rough, 0.42, 1.0-tr);
+  }
+  else if(id == M_SUBSTRATE){
+    vec2 p = wuv*7.0;
+    float via, pad;
+    float tr = traceLayer(p, 0.06, seed+3.0, via, pad) * lodFade(0.03, wuv);
+    float tr2 = traceLayer(p*2.6+3.0, 0.08, seed+9.0, via, pad) * lodFade(0.012, wuv);
+    albedo = mix(vec3(0.048, 0.042, 0.034), vec3(0.40, 0.29, 0.12), max(tr, tr2*0.8));
+    metal = max(tr, tr2)*0.85;
+    rough = 0.33;
+    h = max(tr, tr2*0.7);
+    bumpStr = 0.02;
+  }
+  else if(id == M_INTERPOSER){
+    albedo = vec3(0.10, 0.115, 0.14); rough = 0.30; metal = 0.35;
+    float lines = 1.0 - smoothstep(0.0, 0.02, abs(fract(wuv.x*60.0)-0.5));
+    albedo += vec3(0.03,0.05,0.02)*lines*lodFade(0.01, wuv);
+  }
+  else if(id == M_DIE){
+    /* Compute-die floorplan: SM tiles, cache banks, NoC lanes with traffic. */
+    vec2 f = uv;
+    vec2 grid = vec2(10.0, 14.0);
+    vec2 g = f*grid, gi = floor(g), gf = fract(g);
+    float gut = 0.055;                                   // NoC gutters
+    float inTile = (1.0 - aastep(1.0-gut, max(abs(gf.x-0.5), abs(gf.y-0.5))*2.0));
+    // central cache band
+    float cache = 1.0 - smoothstep(0.05, 0.075, abs(f.y - 0.5));
+    vec3 base = vec3(0.055, 0.062, 0.090);
+    // per-tile tone variation
+    float tv = hash21(gi + seed);
+    vec3 tile = base * (0.75 + 0.5*tv);
+    // register rows inside each tile
+    float rows = logicCells(gf, 26.0) * lodFade(1.0/(grid.x*26.0), f);
+    tile += vec3(0.10, 0.115, 0.135)*rows;
+    // cache banks: vertical SRAM stripes
+    float banks = (1.0 - smoothstep(0.0, 0.06, abs(fract(f.x*90.0)-0.5)))*lodFade(0.011, f);
+    vec3 cacheCol = vec3(0.085,0.10,0.125) + vec3(0.06,0.075,0.09)*banks;
+    albedo = mix(tile, cacheCol, cache);
+    albedo = mix(vec3(0.028,0.032,0.05), albedo, inTile);   // gutters are darker
+    metal = 0.55; rough = mix(0.22, 0.34, tv);
+    // NoC traffic: packets running down the gutters
+    float lane = (1.0-inTile);
+    float pulseX = smoothstep(0.86, 1.0, sin((gi.y*1.7 + f.x*36.0) - t*3.4));
+    float pulseY = smoothstep(0.90, 1.0, sin((gi.x*2.3 + f.y*30.0) + t*2.6));
+    emis += LIME * lane * (pulseX+pulseY) * 0.85;
+    emis += LIME * lane * 0.045;
+    // Metal-stack shimmer
+    float shimmer = fbm(f*40.0 + t*0.05);
+    albedo += vec3(0.02,0.03,0.05)*shimmer;
+    h = inTile*0.5 + rows*0.35 + cache*0.2;
+    bumpStr = 0.010;
+  }
+  else if(id == M_SCHED){
+    /* Rotation-curve scheduler: concentric orbits with a *flat* velocity
+       profile — the galactic-rotation nod. */
+    vec2 c = uv - 0.5;
+    float r = length(c)*2.0, a = atan(c.y, c.x);
+    albedo = vec3(0.05,0.06,0.085); metal=0.5; rough=0.25;
+    float ring = 0.0;
+    for(int i=1;i<=6;i++){
+      float rr = float(i)/6.5;
+      ring = max(ring, 1.0 - smoothstep(0.004, 0.010, abs(r-rr)));
+    }
+    albedo += vec3(0.06,0.08,0.10)*ring;
+    // orbiting warps — all at the same angular speed regardless of radius
+    float orb = 0.0;
+    for(int i=1;i<=6;i++){
+      float rr = float(i)/6.5;
+      float ang = a + t*0.9 + float(i)*1.7;
+      float d = length(c*2.0 - rr*vec2(cos(ang), sin(ang)));
+      orb += exp(-d*d*900.0);
+    }
+    emis += LIME_HOT*orb*1.35 + LIME*ring*0.16;
+    float cells = logicCells(uv, 60.0)*lodFade(0.0166, uv);
+    albedo += vec3(0.05,0.06,0.07)*cells;
+    h = ring*0.4 + cells*0.3; bumpStr = 0.01;
+  }
+  else if(id == M_SECURITY){
+    /* Tamper-respondent mesh: a serpentine sense wire over the enclave. */
+    albedo = vec3(0.045,0.05,0.055); metal=0.4; rough=0.3;
+    vec2 g = uv*vec2(14.0, 14.0); vec2 gi=floor(g), gf=fract(g);
+    float sery = 1.0 - smoothstep(0.05,0.09, abs(gf.y-0.5));
+    float serx = 1.0 - smoothstep(0.05,0.09, abs(gf.x-0.5));
+    float w = mix(sery, serx, step(0.5, hash21(gi)));
+    w *= lodFade(0.07, uv);
+    albedo = mix(albedo, vec3(0.55,0.42,0.16), w);
+    metal = mix(metal, 0.9, w);
+    float alarm = 0.5+0.5*sin(t*2.0);
+    emis += LIME*w*0.35*alarm;
+    h = w; bumpStr = 0.012;
+  }
+  else if(id == M_HBM){
+    if(abs(n.y) > 0.5){
+      /* Top: laser-etched marking */
+      albedo = vec3(0.048,0.050,0.056); rough=0.42; metal=0.25;
+      vec2 g = uv*vec2(16.0,22.0); vec2 gi=floor(g), gf=fract(g);
+      float txt = step(0.55, hash21(gi+seed)) * step(gi.y, 9.0) * step(4.0, gi.y);
+      txt *= (1.0-smoothstep(0.34,0.44,abs(gf.x-0.5)))*(1.0-smoothstep(0.30,0.40,abs(gf.y-0.5)));
+      txt *= lodFade(0.05, uv);
+      albedo = mix(albedo, vec3(0.30,0.31,0.33), txt);
+      float logo = 1.0 - rect(uv-vec2(0.5,0.78), vec2(0.26,0.055));
+      logo = smoothstep(0.985, 1.0, logo)*lodFade(0.08, uv);
+      albedo = mix(albedo, LIME*0.35, logo);
+      emis += LIME*logo*0.18;
+      h = txt*0.5+logo*0.3; bumpStr=0.006;
+    } else {
+      /* Sides: 16 laminated DRAM dies + TSV seams */
+      float layers = 16.0;
+      float y = uv.y*layers;
+      float seam = 1.0 - smoothstep(0.0, 0.09, abs(fract(y)-0.5));
+      seam *= lodFade(1.0/layers*0.2, uv);
+      albedo = mix(vec3(0.10,0.105,0.115), vec3(0.030,0.032,0.036), seam);
+      rough = mix(0.34, 0.55, seam);
+      metal = 0.3;
+      h = -seam; bumpStr = 0.02;
+    }
+  }
+  else if(id == M_ANODIZED){
+    /* Bead-blasted black anodise: dark, mostly matte, with a slow waviness so
+       big flat panels never read as a single mirror. */
+    albedo = vec3(0.0400,0.0415,0.0430); rough = 0.42; metal = 0.22;
+    float brush = fbm(vec2(op.x*180.0, op.z*7.0))*0.5 + fbm(vec2(op.z*180.0, op.x*7.0))*0.5;
+    rough += (brush-0.5)*0.07;
+    float flake = hash21(floor(op.xz*900.0))*lodFade(0.0022, op.xz);
+    albedo += vec3(0.02)*step(0.988, flake);
+    h = brush; bumpStr = 0.004;
+  }
+  else if(id == M_CACHE){
+    /* Dark Matter Cache: dense SRAM macros under a gravitational-lensing
+       shimmer. Mostly unlit — you only see it by what bends around it. */
+    albedo = vec3(0.018,0.020,0.026); metal = 0.45; rough = 0.30;
+    vec2 g = uv*vec2(26.0, 34.0); vec2 gi = floor(g), gf = fract(g);
+    float macro = (1.0 - aastep(0.86, max(abs(gf.x-0.5), abs(gf.y-0.5))*2.0));
+    float bank = (1.0-smoothstep(0.0,0.08,abs(fract(gf.x*7.0)-0.5)))*lodFade(0.0055, uv);
+    albedo += vec3(0.030,0.034,0.045)*macro + vec3(0.02,0.024,0.03)*bank*macro;
+    // halo contours — mass density falling off from the centre
+    float r = length(uv-0.5)*2.0;
+    float contour = 1.0 - smoothstep(0.0, 0.02, abs(fract(r*5.0 - t*0.10) - 0.5));
+    emis += LIME*contour*0.10*(1.0-r);
+    emis += mix(CYAN,LIME,0.5)*macro*0.02;
+    h = macro*0.5 + bank*0.2; bumpStr = 0.012;
+  }
+  else if(id == M_ALUM){
+    albedo = vec3(0.72,0.735,0.75); rough = 0.26; metal = 1.0;
+    float brush = fbm(vec2(op.x*300.0, op.z*4.0));
+    rough += (brush-0.5)*0.12;
+    h = brush; bumpStr = 0.004;
+  }
+  else if(id == M_COPPER){
+    albedo = vec3(0.90,0.48,0.28); rough = 0.24; metal = 1.0;
+    float brush = fbm(vec2(op.x*220.0, op.z*6.0));
+    rough += (brush-0.5)*0.10;
+    h = brush; bumpStr = 0.004;
+  }
+  else if(id == M_CHANNEL){
+    /* Two-phase micro-channel cold plate: 0.18 mm channels + coolant flow. */
+    float chans = 90.0;
+    float c = fract(uv.y*chans);
+    float prof = smoothstep(0.0,0.22,c)*smoothstep(1.0,0.78,c);
+    float f = lodFade(1.0/chans, uv);
+    prof = mix(0.5, prof, f);
+    albedo = mix(vec3(0.55,0.26,0.14), vec3(0.95,0.55,0.33), prof);
+    metal = 1.0; rough = mix(0.5, 0.2, prof);
+    // vapour slugs sprinting along the channels
+    float lane = floor(uv.y*chans);
+    float flow = fract(uv.x*1.6 - t*0.55 + hash11(lane)*1.0);
+    float slug = smoothstep(0.62,0.98,flow)*(1.0-prof)*f;
+    emis += mix(CYAN, LIME, 0.35)*slug*0.85;
+    h = prof; bumpStr = 0.03;
+  }
+  else if(id == M_GOLD){
+    albedo = vec3(0.94,0.73,0.31); rough = 0.19; metal = 1.0;
+    float wear = fbm(op.xz*60.0);
+    rough += wear*0.10;
+  }
+  else if(id == M_PLASTIC){
+    albedo = vec3(0.022,0.024,0.026); rough = 0.55; metal = 0.0;
+    float grain = fbm(op.xz*400.0);
+    rough += (grain-0.5)*0.15;
+    h = grain; bumpStr = 0.003;
+  }
+  else if(id == M_CERAMIC){
+    albedo = vec3(0.26,0.20,0.14); rough = 0.62; metal = 0.0;
+    float ends = smoothstep(0.34,0.42, abs(uv.x-0.5));
+    albedo = mix(albedo, vec3(0.62,0.62,0.64), ends);
+    metal = ends*0.8; rough = mix(rough, 0.30, ends);
+  }
+  else if(id == M_CHROME){
+    albedo = vec3(0.55,0.56,0.58); rough = 0.08; metal = 1.0;
+  }
+  else if(id == M_GRAPHITE){
+    albedo = vec3(0.045,0.047,0.05); rough = 0.72; metal = 0.2;
+    float flake = fbm(op.xz*220.0);
+    albedo += vec3(0.03)*flake;
+  }
+  else if(id == M_SOLDER){
+    /* Micro-bump field — procedural hemispheres, sharp at any magnification. */
+    float N = 46.0;
+    vec2 g = uv*N; vec2 gf = fract(g)-0.5;
+    float d = length(gf);
+    float f = lodFade(1.0/N, uv);
+    float ball = 1.0 - smoothstep(0.30, 0.36, d);
+    ball *= f;
+    albedo = mix(vec3(0.10,0.10,0.115), vec3(0.72,0.73,0.78), ball);
+    metal = mix(0.2, 1.0, ball); rough = mix(0.6, 0.22, ball);
+    h = sqrt(max(0.0, 0.1225 - d*d))*ball;
+    bumpStr = 0.12;
+  }
+  else if(id == M_PHOTONIC){
+    /* Silicon-photonics engine: waveguides carrying real traffic. */
+    albedo = vec3(0.055,0.065,0.075); metal=0.5; rough=0.25;
+    float wg = 0.0, light = 0.0;
+    for(int i=0;i<8;i++){
+      float fi = float(i);
+      float y0 = (fi+0.5)/8.0;
+      float yy = y0 + 0.045*sin(uv.x*6.2831 + fi*0.9);
+      float d = abs(uv.y - yy);
+      float line = 1.0 - smoothstep(0.004, 0.009, d);
+      wg = max(wg, line);
+      float ph = fract(uv.x*0.9 - t*(0.35 + 0.05*fi) + hash11(fi)*1.0);
+      light += line * smoothstep(0.55, 1.0, ph) * 1.0;
+    }
+    float f = lodFade(0.012, uv);
+    wg *= f; light *= f;
+    albedo = mix(albedo, vec3(0.35,0.42,0.48), wg);
+    emis += mix(CYAN, LIME, 0.25) * (light*1.25 + wg*0.12);
+    // ring modulators
+    for(int i=0;i<4;i++){
+      vec2 cc = vec2(0.18+0.22*float(i), 0.5);
+      float d = abs(length(uv-cc) - 0.035);
+      float ring = (1.0-smoothstep(0.004,0.008,d))*f;
+      emis += LIME_HOT*ring*(0.3+0.3*sin(t*3.0+float(i)));
+      albedo = mix(albedo, vec3(0.3,0.35,0.4), ring);
+    }
+    h = wg*0.5; bumpStr = 0.01;
+  }
+  else if(id == M_FIBER){
+    albedo = vec3(0.02,0.05,0.05); rough = 0.12; metal = 0.0;
+    float run = fract(uv.y*1.0 - t*0.7 + seed);
+    float pulse = smoothstep(0.55,1.0,run);
+    emis += mix(CYAN, LIME, 0.35) * (0.10 + 0.75*pulse);
+  }
+  else if(id == M_LIME){
+    albedo = LIME*0.25; rough = 0.28; metal = 0.0;
+    float breathe = 0.86 + 0.14*sin(t*1.6 + op.x*0.6);
+    emis += LIME_HOT * 0.85 * breathe;
+  }
+  else if(id == M_FLOOR){
+    /* A survey grid that dissolves into the void — it grounds the card
+       without ever becoming a lit surface. */
+    vec2 p = op.xz - vec2(-2.0, 0.0);
+    float d = length(p);
+    float fade = exp(-d*0.052);
+    float minor = gridLine(p, 2.0);
+    float major = gridLine(p, 12.0);
+    albedo = vec3(0.0);
+    rough = 1.0; metal = 0.0;
+    emis = LIME*(minor*0.020 + major*0.075)*fade
+         + vec3(0.030,0.046,0.032)*exp(-d*0.075);
+  }
+  rough = clamp(rough, 0.035, 1.0);
+  g_h = h; g_bumpN = (bumpStr > 0.0) ? applyBump(n, h, bumpStr) : n;
+}
+
+/* --------------------------------------------------------------- lighting */
+vec3 envColor(vec3 d, float rough){
+  float up = d.y*0.5 + 0.5;
+  vec3 c = mix(vec3(0.010,0.011,0.014), vec3(0.048,0.055,0.065), up);
+  float sh = mix(0.35, 0.02, rough);              // lobe sharpness
+  // main softbox, high and slightly behind the camera
+  vec3 sb = normalize(vec3(0.25, 0.92, 0.30));
+  c += vec3(1.0,0.99,0.96) * smoothstep(0.90-sh*2.2, 0.995, dot(d, sb)) * (2.6 - rough*1.1);
+  // broad front fill so machined metal has something to hold
+  c += vec3(0.11,0.13,0.16) * smoothstep(-0.35, 1.0, dot(d, normalize(vec3(0.15,0.30,0.94))));
+  // lime strip light, back-left
+  vec3 s1 = normalize(vec3(-0.85, 0.28, -0.45));
+  c += LIME * smoothstep(0.92-sh*2.0, 0.999, dot(d, s1)) * (0.72 - rough*0.40);
+  // cool strip, back-right
+  vec3 s2 = normalize(vec3(0.80, 0.16, -0.58));
+  c += CYAN * smoothstep(0.93-sh*1.8, 0.999, dot(d, s2)) * (0.52 - rough*0.30);
+  // floor bounce
+  c += vec3(0.028,0.045,0.026) * smoothstep(0.15, -0.75, d.y);
+  return max(c, vec3(0.0));
+}
+
+vec3 F_schlick(vec3 f0, float u){ return f0 + (1.0-f0)*pow(1.0-u, 5.0); }
+float D_ggx(float nh, float a){ float a2=a*a; float d=nh*nh*(a2-1.0)+1.0; return a2/(PI*d*d+1e-7); }
+float V_smith(float nv, float nl, float a){
+  float a2=a*a;
+  float gv = nl*sqrt(nv*nv*(1.0-a2)+a2);
+  float gl = nv*sqrt(nl*nl*(1.0-a2)+a2);
+  return 0.5/max(gv+gl, 1e-6);
+}
+vec2 envBRDF(float nv, float rough){
+  vec4 c0 = vec4(-1.0,-0.0275,-0.572,0.022), c1 = vec4(1.0,0.0425,1.04,-0.04);
+  vec4 r = rough*c0 + c1;
+  float a004 = min(r.x*r.x, exp2(-9.28*nv))*r.x + r.y;
+  return vec2(-1.04,1.04)*a004 + r.zw;
+}
+
+float shadowAt(vec3 wp, float ndl){
+  vec4 lp = u_lightVP * vec4(wp, 1.0);
+  vec3 pc = lp.xyz/lp.w * 0.5 + 0.5;
+  if(pc.x<0.001||pc.x>0.999||pc.y<0.001||pc.y>0.999||pc.z>1.0) return 1.0;
+  float bias = max(0.0016*(1.0-ndl), 0.0006);
+  float s = 0.0;
+  for(int y=-1;y<=1;y++){
+    for(int x=-1;x<=1;x++){
+      vec2 o = vec2(float(x), float(y))*u_shadowTexel;
+      float d = texture(u_shadow, pc.xy+o).r;
+      s += (pc.z - bias > d) ? 0.0 : 1.0;
+    }
+  }
+  return s/9.0;
+}
+
+/* specW lets the fill and rim lights contribute light without stamping a
+   giant specular sheen across the card's flat panels. */
+vec3 shade(vec3 N, vec3 V, vec3 L, vec3 lc, vec3 albedo, float rough, float metal,
+           float shadow, float specW){
+  vec3 H = normalize(V+L);
+  float nl = max(dot(N,L), 0.0), nv = max(dot(N,V), 1e-4);
+  float nh = max(dot(N,H), 0.0), vh = max(dot(V,H), 0.0);
+  float a = rough*rough;
+  vec3 f0 = mix(vec3(0.04), albedo, metal);
+  vec3 F = F_schlick(f0, vh);
+  float D = D_ggx(nh, a);
+  float Vs = V_smith(nv, nl, a);
+  vec3 spec = F*D*Vs*specW;
+  vec3 diff = (1.0-F)*(1.0-metal)*albedo/PI;
+  return (diff+spec)*lc*nl*shadow;
+}
+
+/* Ordered dither — lets cutaway parts fade out inside the opaque pass. */
+float dither(vec2 fc){
+  int x = int(mod(fc.x, 4.0)), y = int(mod(fc.y, 4.0));
+  float m[16] = float[16](0.0,8.0,2.0,10.0, 12.0,4.0,14.0,6.0, 3.0,11.0,1.0,9.0, 15.0,7.0,13.0,5.0);
+  return (m[y*4+x]+0.5)/16.0;
+}
+
+void main(){
+  float alpha = v_alpha;
+  if(alpha < 0.999){
+    if(dither(gl_FragCoord.xy) > alpha) discard;
+  }
+  int mid = int(v_info.x + 0.5);
+  vec3 N = normalize(v_nrm);
+  if(!gl_FrontFacing) N = -N;
+  vec3 V = normalize(u_camPos - v_wpos);
+
+  vec3 albedo; float rough; float metal; vec3 emis;
+  material(mid, v_wpos, v_uv, v_info.z, v_info.w, N, albedo, rough, metal, emis);
+  N = g_bumpN;
+
+  /* The floor is scenography, not a material: no env, no specular, just a
+     grid that the card's shadow pools into. */
+  if(mid == M_FLOOR){
+    float sh = shadowAt(v_wpos, 1.0);
+    o_color = vec4(emis*mix(0.06, 1.0, sh), 1.0);
+    return;
+  }
+
+  float nv = max(dot(N,V), 1e-4);
+
+  // Key light (warm-white, high right) + shadow
+  vec3 Lk = normalize(vec3(0.42, 0.86, 0.30));
+  float shadow = shadowAt(v_wpos, max(dot(N,Lk),0.0));
+  vec3 col = shade(N, V, Lk, vec3(1.00,0.98,0.94)*3.6, albedo, rough, metal, shadow, 1.0);
+  // Lime rim, almost horizontal so it catches edges rather than panel tops
+  vec3 Lr = normalize(vec3(-0.88, 0.09, -0.47));
+  col += shade(N, V, Lr, LIME*1.6, albedo, rough, metal, 1.0, 0.45);
+  // Fresnel edge light — separates the silhouette from the void.
+  col += LIME * pow(1.0 - nv, 5.0) * 0.30;
+  // Cool fill from the front-left, diffuse-dominant
+  vec3 Lf = normalize(vec3(-0.52, 0.14, 0.84));
+  col += shade(N, V, Lf, vec3(0.34,0.50,0.60)*1.1, albedo, rough, metal, 1.0, 0.22);
+
+  // Image-based ambient
+  vec3 f0 = mix(vec3(0.04), albedo, metal);
+  vec3 R = reflect(-V, N);
+  vec2 ab = envBRDF(nv, rough);
+  vec3 irr = envColor(N, 1.0);
+  col += irr*albedo*(1.0-metal)*0.55;
+  col += envColor(R, rough)*(f0*ab.x + ab.y);
+
+  col += emis;
+
+
+  // Cutaway edge: parts mid-dissolve glow at their fringe
+  float diss = 1.0 - alpha;
+  col += LIME_HOT * diss * (1.0-diss) * 4.0 * u_xrayAmt;
+
+  // Hover / selection highlight — fresnel rim in brand lime
+  if(v_hl > 0.001){
+    float fres = pow(1.0 - nv, 2.5);
+    col += LIME * fres * v_hl * 2.2;
+    col += LIME * v_hl * 0.10;
+  }
+
+  o_color = vec4(col, 1.0);
+}`;
+
+/* ---------------------------------------------------- depth / shadow pass */
+
+const DEPTH_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 a_pos;
+layout(location=3) in vec4 a_info;
+uniform mat4 u_viewProj;
+uniform vec4 u_part[32];
+out float v_alpha;
+void main(){
+  int pid = int(a_info.y+0.5);
+  vec4 pp = u_part[pid];
+  v_alpha = pp.w;
+  gl_Position = u_viewProj * vec4(a_pos + pp.xyz, 1.0);
+}`;
+
+const DEPTH_FS = `#version 300 es
+precision highp float;
+in float v_alpha;
+out vec4 o;
+void main(){ if(v_alpha < 0.5) discard; o = vec4(1.0); }`;
+
+/* ------------------------------------------------------------ picking pass */
+
+const PICK_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 a_pos;
+layout(location=3) in vec4 a_info;
+uniform mat4 u_viewProj;
+uniform vec4 u_part[32];
+flat out float v_pid;
+out float v_alpha;
+void main(){
+  int pid = int(a_info.y+0.5);
+  vec4 pp = u_part[pid];
+  v_pid = a_info.y;
+  v_alpha = pp.w;
+  gl_Position = u_viewProj * vec4(a_pos + pp.xyz, 1.0);
+}`;
+
+const PICK_FS = `#version 300 es
+precision highp float;
+flat in float v_pid;
+in float v_alpha;
+out vec4 o;
+void main(){
+  if(v_alpha < 0.5) discard;
+  o = vec4((v_pid+1.0)/255.0, 0.0, 0.0, 1.0);
+}`;
+
+/* --------------------------------------------------------------- backdrop */
+
+const BG_VS = `#version 300 es
+precision highp float;
+out vec2 v_uv;
+void main(){
+  vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2);
+  v_uv = p;
+  gl_Position = vec4(p*2.0-1.0, 0.0, 1.0);
+}`;
+
+const BG_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform vec2 u_res;
+uniform float u_time;
+uniform float u_focusAmt;
+out vec4 o;
+${GLSL_COMMON}
+void main(){
+  vec2 uv = v_uv;
+  vec2 p = (uv - 0.5) * vec2(u_res.x/u_res.y, 1.0);
+  vec3 c = mix(vec3(0.0075,0.009,0.0105), vec3(0.001,0.0012,0.0015), length(p)*0.75);
+  // Rubin's rotation curves: faint concentric arcs
+  float d = length(p*vec2(1.0,1.35) - vec2(0.0,-0.05));
+  for(int i=0;i<5;i++){
+    float r = 0.30 + float(i)*0.17;
+    float ring = exp(-pow((d-r)*90.0, 2.0));
+    c += LIME*ring*0.020;
+  }
+  // volumetric lime bloom behind the card
+  c += LIME * exp(-d*d*5.0) * 0.055;
+  c += CYAN * exp(-pow(length(p-vec2(0.55,0.25)),2.0)*9.0) * 0.020;
+  // drifting galactic dust
+  float n = fbm(p*3.0 + vec2(u_time*0.012, 0.0));
+  c += LIME * n*n * 0.020;
+  // vignette + dither to kill banding
+  c *= 1.0 - 0.55*pow(length(p*0.85), 2.2);
+  c += (hash21(gl_FragCoord.xy + u_time)-0.5)*0.0022;
+  o = vec4(c, 1.0);
+}`;
+
+/* ---------------------------------------------------------------- particles */
+
+const DUST_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 a_pos;
+layout(location=1) in vec2 a_rnd;
+uniform mat4 u_viewProj;
+uniform float u_time;
+uniform float u_pixelRatio;
+out float v_a;
+void main(){
+  vec3 p = a_pos;
+  p.y += sin(u_time*0.25 + a_rnd.x*30.0)*1.2;
+  p.x += cos(u_time*0.18 + a_rnd.y*24.0)*1.0;
+  vec4 cp = u_viewProj*vec4(p,1.0);
+  gl_Position = cp;
+  gl_PointSize = (2.0 + a_rnd.x*3.5) * u_pixelRatio * (14.0/max(cp.w,0.6));
+  v_a = (0.25 + a_rnd.y*0.75);
+}`;
+
+const DUST_FS = `#version 300 es
+precision highp float;
+in float v_a;
+out vec4 o;
+void main(){
+  vec2 d = gl_PointCoord - 0.5;
+  float m = exp(-dot(d,d)*14.0);
+  o = vec4(vec3(0.639,0.902,0.208)*m*v_a*0.5, 1.0);
+}`;
+
+
+/* ==== 04-shaders-post.js =============================================== */
+/* ============================================================================
+   04 · POST STACK — SSAO → bloom → depth of field → ACES grade → FXAA.
+   The DoF is what sells the macro shots: when the camera dives to the die,
+   the circuit of interest stays razor sharp while everything else melts.
+   ========================================================================== */
+
+const QUAD_VS = `#version 300 es
+precision highp float;
+out vec2 v_uv;
+void main(){
+  vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2);
+  v_uv = p;
+  gl_Position = vec4(p*2.0-1.0, 0.0, 1.0);
+}`;
+
+/* ------------------------------------------------------------------- SSAO */
+const SSAO_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_depth;
+uniform mat4 u_invProj;
+uniform mat4 u_proj;
+uniform vec2 u_res;
+uniform float u_radius;
+uniform float u_time;
+out vec4 o;
+
+float hash21(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+
+vec3 viewPos(vec2 uv){
+  float d = texture(u_depth, uv).r;
+  vec4 ndc = vec4(uv*2.0-1.0, d*2.0-1.0, 1.0);
+  vec4 vp = u_invProj*ndc;
+  return vp.xyz/vp.w;
+}
+
+void main(){
+  float d0 = texture(u_depth, v_uv).r;
+  if(d0 >= 0.99999){ o = vec4(1.0); return; }
+  vec3 P = viewPos(v_uv);
+  vec3 n = normalize(cross(dFdx(P), dFdy(P)));
+  if(n.z < 0.0) n = -n;
+
+  float ang = hash21(v_uv*u_res)*6.2831853;
+  float ca = cos(ang), sa = sin(ang);
+  float occ = 0.0;
+  const int N = 12;
+  for(int i=0;i<N;i++){
+    float fi = float(i);
+    float a = (fi/float(N))*6.2831853*3.0;
+    float r = (0.25 + 0.75*fract(fi*0.61803))*u_radius;
+    vec3 dir = vec3(cos(a), sin(a), 0.0);
+    dir.xy = vec2(dir.x*ca - dir.y*sa, dir.x*sa + dir.y*ca);
+    dir.z = 0.35 + 0.65*fract(fi*0.3819);
+    dir = normalize(dir);
+    if(dot(dir, n) < 0.0) dir = -dir;
+    vec3 sp = P + dir*r;
+    vec4 cp = u_proj*vec4(sp, 1.0);
+    vec2 suv = cp.xy/cp.w*0.5+0.5;
+    if(suv.x<0.0||suv.x>1.0||suv.y<0.0||suv.y>1.0) continue;
+    vec3 sampleP = viewPos(suv);
+    float diff = sampleP.z - sp.z;
+    float rangeCheck = smoothstep(0.0, 1.0, u_radius/max(abs(P.z - sampleP.z), 1e-4));
+    occ += (diff > 0.012*u_radius ? 1.0 : 0.0)*rangeCheck;
+  }
+  float ao = 1.0 - occ/float(N);
+  o = vec4(clamp(pow(ao, 1.6), 0.0, 1.0));
+}`;
+
+/* --------------------------------------------------------------- blur/copy */
+const BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+uniform vec2 u_dir;       // texel-sized step
+out vec4 o;
+void main(){
+  vec4 s = texture(u_tex, v_uv)*0.227027;
+  s += (texture(u_tex, v_uv + u_dir*1.3846) + texture(u_tex, v_uv - u_dir*1.3846))*0.316216;
+  s += (texture(u_tex, v_uv + u_dir*3.2308) + texture(u_tex, v_uv - u_dir*3.2308))*0.070270;
+  o = s;
+}`;
+
+const COPY_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+out vec4 o;
+void main(){ o = texture(u_tex, v_uv); }`;
+
+const BRIGHT_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+uniform float u_threshold;
+uniform float u_knee;
+out vec4 o;
+void main(){
+  vec3 c = texture(u_tex, v_uv).rgb;
+  float l = max(c.r, max(c.g, c.b));
+  float soft = clamp(l - u_threshold + u_knee, 0.0, 2.0*u_knee);
+  soft = soft*soft/(4.0*u_knee + 1e-5);
+  float w = max(soft, l - u_threshold)/max(l, 1e-5);
+  o = vec4(c*w, 1.0);
+}`;
+
+/* ---------------------------------------------------------------- composite */
+const COMPOSITE_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_scene;
+uniform sampler2D u_depth;
+uniform sampler2D u_ao;
+uniform sampler2D u_b0;
+uniform sampler2D u_b1;
+uniform sampler2D u_b2;
+uniform sampler2D u_b3;
+uniform sampler2D u_b4;
+uniform sampler2D u_dofHalf;
+uniform sampler2D u_dofQuarter;
+uniform vec2  u_res;
+uniform float u_time;
+uniform float u_bloom;
+uniform float u_aoAmt;
+uniform float u_focusDist;    // view-space focal distance
+uniform float u_dofAmt;       // 0 = pinhole, 1 = full macro bokeh
+uniform float u_near;
+uniform float u_far;
+uniform float u_vignette;
+uniform float u_exposure;
+uniform float u_reveal;       // intro wipe 0..1
+out vec4 o;
+
+float hash21(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+
+float linearDepth(float d){
+  float z = d*2.0-1.0;
+  return (2.0*u_near*u_far)/(u_far+u_near - z*(u_far-u_near));
+}
+
+vec3 aces(vec3 x){
+  const float a=2.51, b=0.03, c=2.43, d=0.59, e=0.14;
+  return clamp((x*(a*x+b))/(x*(c*x+d)+e), 0.0, 1.0);
+}
+
+void main(){
+  vec2 uv = v_uv;
+  vec2 p = uv - 0.5;
+
+  // Chromatic aberration grows toward the frame edge
+  float ca = (0.0009 + 0.0022*u_dofAmt) * dot(p,p) * 4.0;
+  vec3 col;
+  col.r = texture(u_scene, uv + p*ca).r;
+  col.g = texture(u_scene, uv).g;
+  col.b = texture(u_scene, uv - p*ca).b;
+
+  // Depth of field
+  float z = linearDepth(texture(u_depth, uv).r);
+  float coc = clamp(abs(z - u_focusDist)/max(u_focusDist*1.55, 0.05), 0.0, 1.0);
+  coc = smoothstep(0.10, 1.0, coc)*u_dofAmt;
+  if(coc > 0.001){
+    vec3 h = texture(u_dofHalf, uv).rgb;
+    vec3 q = texture(u_dofQuarter, uv).rgb;
+    vec3 blurred = mix(h, q, smoothstep(0.25, 1.0, coc));
+    col = mix(col, blurred, smoothstep(0.0, 0.55, coc));
+  }
+
+  // Ambient occlusion
+  float ao = texture(u_ao, uv).r;
+  col *= mix(1.0, ao, u_aoAmt);
+
+  // Bloom
+  vec3 b = texture(u_b0, uv).rgb*1.00
+         + texture(u_b1, uv).rgb*0.85
+         + texture(u_b2, uv).rgb*0.65
+         + texture(u_b3, uv).rgb*0.48
+         + texture(u_b4, uv).rgb*0.35;
+  col += b*u_bloom*0.15;
+
+  // Exposure + filmic tonemap
+  col *= u_exposure;
+  col = aces(col);
+
+  // Grade: crushed blacks with a lime lean, cool highlights
+  col = pow(col, vec3(0.98, 0.95, 1.02));
+  col = mix(vec3(dot(col, vec3(0.299,0.587,0.114))), col, 1.12);
+  col += vec3(0.003, 0.006, 0.002)*(1.0-col);
+
+  // Vignette
+  float vig = 1.0 - u_vignette*pow(length(p*vec2(1.0,1.05))*1.35, 2.3);
+  col *= clamp(vig, 0.0, 1.0);
+
+  // Linear → display. Everything above this line is linear light.
+  col = pow(max(col, vec3(0.0)), vec3(1.0/2.2));
+
+  // Film grain
+  float g = hash21(uv*u_res + fract(u_time)*97.0) - 0.5;
+  col += g*0.016*(1.0 - 0.7*dot(col, vec3(0.33)));
+
+  // Intro reveal: a diagonal wipe with a lime leading edge.
+  float sweep = uv.x*0.42 + (1.0-uv.y)*0.26;   // 0 .. 0.68 across the frame
+  float e = u_reveal - sweep;                  // > 0 once the wipe has passed
+  col *= smoothstep(-0.16, 0.10, e);
+  col += vec3(0.639,0.902,0.208) * exp(-e*e*900.0) * 0.55;
+
+  o = vec4(col, 1.0);
+}`;
+
+/* -------------------------------------------------------------------- FXAA */
+const FXAA_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+uniform vec2 u_res;
+out vec4 o;
+float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
+void main(){
+  vec2 px = 1.0/u_res;
+  vec3 mC = texture(u_tex, v_uv).rgb;
+  float lM = luma(mC);
+  float lNW = luma(texture(u_tex, v_uv + vec2(-1.0,-1.0)*px).rgb);
+  float lNE = luma(texture(u_tex, v_uv + vec2( 1.0,-1.0)*px).rgb);
+  float lSW = luma(texture(u_tex, v_uv + vec2(-1.0, 1.0)*px).rgb);
+  float lSE = luma(texture(u_tex, v_uv + vec2( 1.0, 1.0)*px).rgb);
+  float lMin = min(lM, min(min(lNW,lNE), min(lSW,lSE)));
+  float lMax = max(lM, max(max(lNW,lNE), max(lSW,lSE)));
+  if(lMax - lMin < max(0.0312, lMax*0.125)){ o = vec4(mC,1.0); return; }
+  vec2 dir = vec2(-((lNW+lNE)-(lSW+lSE)), ((lNW+lSW)-(lNE+lSE)));
+  float red = max((lNW+lNE+lSW+lSE)*0.25*0.25, 0.006);
+  float rcp = 1.0/(min(abs(dir.x), abs(dir.y)) + red);
+  dir = clamp(dir*rcp, -8.0, 8.0)*px;
+  vec3 a = 0.5*(texture(u_tex, v_uv + dir*(1.0/3.0-0.5)).rgb +
+                texture(u_tex, v_uv + dir*(2.0/3.0-0.5)).rgb);
+  vec3 b = a*0.5 + 0.25*(texture(u_tex, v_uv - dir*0.5).rgb +
+                         texture(u_tex, v_uv + dir*0.5).rgb);
+  float lB = luma(b);
+  o = vec4((lB < lMin || lB > lMax) ? a : b, 1.0);
+}`;
+
+
+/* ==== 05-gl.js ========================================================= */
+/* ============================================================================
+   05 · GL — a tiny WebGL2 wrapper: programs with reflected uniforms, render
+   targets (with optional MSAA resolve), and a fullscreen-triangle helper.
+   ========================================================================== */
+
+class Program {
+  constructor(gl, vsSrc, fsSrc, name) {
+    this.gl = gl;
+    this.name = name;
+    const vs = this._compile(gl.VERTEX_SHADER, vsSrc, name + '.vs');
+    const fs = this._compile(gl.FRAGMENT_SHADER, fsSrc, name + '.fs');
+    const p = gl.createProgram();
+    gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      throw new Error(`link ${name}: ${gl.getProgramInfoLog(p)}`);
+    }
+    gl.deleteShader(vs); gl.deleteShader(fs);
+    this.p = p;
+    this.u = {};
+    const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) {
+      const info = gl.getActiveUniform(p, i);
+      const base = info.name.replace(/\[0\]$/, '');
+      this.u[base] = { loc: gl.getUniformLocation(p, info.name), type: info.type, size: info.size };
+    }
+    this._unit = 0;
+  }
+  _compile(type, src, label) {
+    const gl = this.gl;
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(s);
+      const lines = src.split('\n').map((l, i) => `${String(i + 1).padStart(4)}| ${l}`);
+      const m = /ERROR:\s*\d+:(\d+)/.exec(log);
+      const ctx = m ? lines.slice(Math.max(0, +m[1] - 6), +m[1] + 4).join('\n') : '';
+      throw new Error(`compile ${label}: ${log}\n${ctx}`);
+    }
+    return s;
+  }
+  use(uniforms) {
+    const gl = this.gl;
+    gl.useProgram(this.p);
+    this._unit = 0;
+    if (uniforms) this.set(uniforms);
+    return this;
+  }
+  set(uniforms) {
+    const gl = this.gl;
+    for (const k in uniforms) {
+      const d = this.u[k];
+      if (!d) continue;
+      const v = uniforms[k];
+      switch (d.type) {
+        case gl.FLOAT: Array.isArray(v) || ArrayBuffer.isView(v) ? gl.uniform1fv(d.loc, v) : gl.uniform1f(d.loc, v); break;
+        case gl.FLOAT_VEC2: gl.uniform2fv(d.loc, v); break;
+        case gl.FLOAT_VEC3: gl.uniform3fv(d.loc, v); break;
+        case gl.FLOAT_VEC4: gl.uniform4fv(d.loc, v); break;
+        case gl.INT: case gl.BOOL: gl.uniform1i(d.loc, v); break;
+        case gl.INT_VEC2: gl.uniform2iv(d.loc, v); break;
+        case gl.FLOAT_MAT4: gl.uniformMatrix4fv(d.loc, false, v); break;
+        case gl.FLOAT_MAT3: gl.uniformMatrix3fv(d.loc, false, v); break;
+        case gl.SAMPLER_2D: {
+          const unit = this._unit++;
+          gl.activeTexture(gl.TEXTURE0 + unit);
+          gl.bindTexture(gl.TEXTURE_2D, v);
+          gl.uniform1i(d.loc, unit);
+          break;
+        }
+        default: break;
+      }
+    }
+    return this;
+  }
+}
+
+class Target {
+  /** @param opts {float, depth, depthTexture, filter, samples} */
+  constructor(gl, w, h, opts = {}) {
+    this.gl = gl; this.w = Math.max(1, w | 0); this.h = Math.max(1, h | 0);
+    this.opts = opts;
+    this._build();
+  }
+  _build() {
+    const gl = this.gl, o = this.opts, { w, h } = this;
+    const internal = o.float ? gl.RGBA16F : gl.RGBA8;
+    const type = o.float ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
+    const filter = o.filter === false ? gl.NEAREST : gl.LINEAR;
+
+    this.fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb);
+
+    this.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, gl.RGBA, type, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tex, 0);
+
+    if (o.depthTexture) {
+      this.depthTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.depthTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, w, h, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.depthTex, 0);
+    } else if (o.depth) {
+      this.rb = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.rb);
+    }
+
+    // Optional multisampled companion, resolved into the textures above.
+    if (o.samples > 1) {
+      this.msFb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.msFb);
+      this.msColor = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, this.msColor);
+      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, o.samples, internal, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, this.msColor);
+      this.msDepth = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, this.msDepth);
+      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, o.samples, gl.DEPTH_COMPONENT24, w, h);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.msDepth);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        gl.deleteFramebuffer(this.msFb); this.msFb = null;
+      }
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  /** Framebuffer to draw into (multisampled one when available). */
+  get drawFb() { return this.msFb || this.fb; }
+  bind() {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.drawFb);
+    gl.viewport(0, 0, this.w, this.h);
+  }
+  /** Resolve MSAA into the sampleable textures. */
+  resolve() {
+    if (!this.msFb) return;
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.msFb);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.fb);
+    let mask = gl.COLOR_BUFFER_BIT;
+    if (this.depthTex) mask |= gl.DEPTH_BUFFER_BIT;
+    gl.blitFramebuffer(0, 0, this.w, this.h, 0, 0, this.w, this.h, mask, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  resize(w, h) {
+    w = Math.max(1, w | 0); h = Math.max(1, h | 0);
+    if (w === this.w && h === this.h) return;
+    this.dispose();
+    this.w = w; this.h = h;
+    this._build();
+  }
+  dispose() {
+    const gl = this.gl;
+    gl.deleteFramebuffer(this.fb);
+    gl.deleteTexture(this.tex);
+    if (this.depthTex) gl.deleteTexture(this.depthTex);
+    if (this.rb) gl.deleteRenderbuffer(this.rb);
+    if (this.msFb) { gl.deleteFramebuffer(this.msFb); gl.deleteRenderbuffer(this.msColor); gl.deleteRenderbuffer(this.msDepth); }
+    this.msFb = null;
+  }
+}
+
+
+/* ==== 06-model.js ====================================================== */
+/* ============================================================================
+   06 · MODEL — the Vera Rubin VR-300 "Halo" accelerator, built from scratch.
+   Units are centimetres. The card is 32 × 12 cm; the package alone is 11 × 8.
+   ========================================================================== */
+
+const MAT = {
+  PCB: 0, SUBSTRATE: 1, DIE: 2, HBM: 3, ANODIZED: 4, ALUM: 5, COPPER: 6,
+  GOLD: 7, PLASTIC: 8, LIME: 9, FIBER: 10, CERAMIC: 11, CHROME: 12,
+  PHOTONIC: 13, SOLDER: 14, GRAPHITE: 15, FLOOR: 16, SCHED: 17, SECURITY: 18,
+  CHANNEL: 19, INTERPOSER: 20, CACHE: 21,
+};
+
+const PART = {
+  PCB: 0, SMD: 1, SUBSTRATE: 2, INTERPOSER: 3, DIE_A: 4, DIE_B: 5, BRIDGE: 6,
+  CACHE: 7, BUMPS: 8, HBM: 9, PHOTONIC: 10, FIBER: 11, VRM: 12, INDUCTOR: 13,
+  CAPS: 14, COLDPLATE: 15, CHANNELS: 16, FINS: 17, SHROUD: 18, BACKPLATE: 19,
+  FINGERS: 20, HYPERMESH: 21, POWER: 22, LOGO: 23, BRACKET: 24, LIGHTBAR: 25,
+  SCREWS: 26, SECURITY: 27, SCHED: 28, PORTS: 29, FLOOR: 30,
+};
+const PART_COUNT = 31;
+
+/** Human-readable names for the hover tooltip (indexed by PART value). */
+const PART_NAMES = [];
+PART_NAMES[PART.PCB] = '24-layer PCB · Megtron-8';
+PART_NAMES[PART.SMD] = 'Discrete passives';
+PART_NAMES[PART.SUBSTRATE] = 'Organic package substrate';
+PART_NAMES[PART.INTERPOSER] = 'CoWoS-Ω silicon interposer';
+PART_NAMES[PART.DIE_A] = 'Compute die A · RV100';
+PART_NAMES[PART.DIE_B] = 'Compute die B · RV100';
+PART_NAMES[PART.BRIDGE] = 'Reticle-bridge link';
+PART_NAMES[PART.CACHE] = 'Dark Matter Cache layer';
+PART_NAMES[PART.BUMPS] = 'Hybrid-bond micro-bump field';
+PART_NAMES[PART.HBM] = 'HBM4e Halo stack';
+PART_NAMES[PART.PHOTONIC] = 'LightBridge photonic engine';
+PART_NAMES[PART.FIBER] = 'Fibre pigtail';
+PART_NAMES[PART.VRM] = 'Vertical power stage';
+PART_NAMES[PART.INDUCTOR] = 'Coupled inductor';
+PART_NAMES[PART.CAPS] = 'Bulk capacitor';
+PART_NAMES[PART.COLDPLATE] = 'Vapour chamber lid';
+PART_NAMES[PART.CHANNELS] = 'Micro-channel evaporator';
+PART_NAMES[PART.FINS] = 'Skived fin stack';
+PART_NAMES[PART.SHROUD] = 'Exoframe shroud';
+PART_NAMES[PART.BACKPLATE] = 'Structural backplate';
+PART_NAMES[PART.FINGERS] = 'PCIe Gen7 ×16 edge';
+PART_NAMES[PART.HYPERMESH] = 'HyperMesh-7 fabric port';
+PART_NAMES[PART.POWER] = '48 V direct-drive inlet';
+PART_NAMES[PART.LOGO] = 'Civo × Vera Rubin mark';
+PART_NAMES[PART.BRACKET] = 'I/O bracket';
+PART_NAMES[PART.LIGHTBAR] = 'Telemetry light bar';
+PART_NAMES[PART.SCREWS] = 'Torx retention';
+PART_NAMES[PART.SECURITY] = 'Root-of-trust enclave';
+PART_NAMES[PART.SCHED] = 'Rotation-curve scheduler';
+PART_NAMES[PART.PORTS] = 'Optical MPO cage';
+PART_NAMES[PART.FLOOR] = '';
+
+/* Deterministic RNG so the board looks identical on every load. */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const GEO = {
+  pcb: { w: 32, h: 0.22, d: 12 },
+  pkg: { x: -6.0, w: 11.0, h: 0.35, d: 8.2 },
+  dieA: -7.7, dieB: -4.3,
+  dieW: 3.0, dieD: 4.6, dieY: 1.02, dieH: 0.36,
+  hbmX: [-10.6, -1.4], hbmZ: [-2.8, -0.95, 0.95, 2.8],
+  photZ: -5.0, photX: [-8.5, -5.0, -1.5],
+  coldY: 1.9,
+};
+
+function buildScene() {
+  const B = new MeshBuilder();
+  const rnd = mulberry32(0x5EEDCAFE);
+  const P = GEO.pcb;
+
+  /* ---------------------------------------------------------------- floor */
+  B.add(plane(420, 420, 1, 1), xf([0, -8.2, 0]), MAT.FLOOR, PART.FLOOR);
+
+  /* ------------------------------------------------------------------ PCB */
+  B.add(box(P.w, P.h, P.d), xf([0, 0, 0]), MAT.PCB, PART.PCB, 1, 1.0);
+
+  /* PCIe Gen7 edge connector: two gold pad banks either side of the key. */
+  const fingerY = -P.h / 2 - 0.005;
+  const bank = (x0, x1) => {
+    const n = Math.round((x1 - x0) / 0.24);
+    for (let i = 0; i < n; i++) {
+      const x = x0 + i * 0.24 + 0.06;
+      B.add(box(0.16, 0.02, 1.35), xf([x, fingerY, -P.d / 2 + 0.72]), MAT.GOLD, PART.FINGERS);
+    }
+  };
+  bank(-11.4, -8.6);
+  bank(-7.8, 3.6);
+
+  /* --------------------------------------------------------- backplate */
+  B.add(roundedBox(P.w, 0.3, P.d, 0.12, 2), xf([0, -0.47, 0]), MAT.ANODIZED, PART.BACKPLATE);
+  // etched lime inlay running the length of the backplate
+  B.add(box(20, 0.02, 0.12), xf([2, -0.63, -3.4]), MAT.LIME, PART.LOGO);
+  B.add(box(20, 0.02, 0.12), xf([2, -0.63, 3.4]), MAT.LIME, PART.LOGO);
+
+  /* --------------------------------------------------------- I/O bracket */
+  B.add(roundedBox(0.28, 5.4, P.d + 0.6, 0.1, 2), xf([-16.1, 2.0, 0]), MAT.ALUM, PART.BRACKET);
+  for (let i = 0; i < 4; i++) {
+    const z = -4.2 + i * 2.8;
+    B.add(roundedBox(0.9, 1.1, 2.0, 0.1, 2), xf([-15.5, 1.3, z]), MAT.CHROME, PART.PORTS);
+    B.add(box(0.06, 0.55, 1.5), xf([-15.02, 1.3, z]), MAT.PLASTIC, PART.PORTS);
+    B.add(box(0.04, 0.12, 1.2), xf([-14.98, 1.3, z]), MAT.FIBER, PART.PORTS, 1, i * 0.37);
+  }
+
+  /* ------------------------------------------------------------- package */
+  const K = GEO.pkg;
+  B.add(roundedBox(K.w, K.h, K.d, 0.06, 2), xf([K.x, 0.11 + K.h / 2, 0]), MAT.SUBSTRATE, PART.SUBSTRATE, 1, 2.0);
+  B.add(box(K.w - 0.8, 0.18, K.d - 0.8), xf([K.x, 0.505, 0]), MAT.INTERPOSER, PART.INTERPOSER);
+
+  /* Dark Matter Cache: a stacked-SRAM slab hybrid-bonded under the compute
+     dies — invisible in the die shot until the die is lifted away. */
+  for (const dx of [GEO.dieA, GEO.dieB]) {
+    B.add(box(GEO.dieW + 0.1, 0.18, GEO.dieD + 0.1), xf([dx, 0.69, 0]), MAT.CACHE, PART.CACHE);
+    B.add(box(GEO.dieW, 0.06, GEO.dieD), xf([dx, 0.81, 0]), MAT.SOLDER, PART.BUMPS);
+  }
+
+  /* Twin reticle-limit compute dies + the bridge that fuses them. */
+  B.add(box(GEO.dieW, GEO.dieH, GEO.dieD), xf([GEO.dieA, GEO.dieY, 0]), MAT.DIE, PART.DIE_A, 1, 4.0);
+  B.add(box(GEO.dieW, GEO.dieH, GEO.dieD), xf([GEO.dieB, GEO.dieY, 0]), MAT.DIE, PART.DIE_B, 1, 9.0);
+  B.add(box(0.55, 0.30, GEO.dieD - 0.6), xf([(GEO.dieA + GEO.dieB) / 2, 0.99, 0]), MAT.INTERPOSER, PART.BRIDGE);
+
+  /* On-die regions the camera can dive into. */
+  const dieTop = GEO.dieY + GEO.dieH / 2;
+  B.add(box(1.5, 0.02, 1.5), xf([GEO.dieA, dieTop + 0.011, 1.35]), MAT.SCHED, PART.SCHED);
+  B.add(box(0.9, 0.02, 0.9), xf([GEO.dieB, dieTop + 0.011, -1.6]), MAT.SECURITY, PART.SECURITY);
+
+  /* ------------------------------------------------------- HBM4e stacks */
+  let hbmSeed = 0;
+  for (const hx of GEO.hbmX) {
+    for (const hz of GEO.hbmZ) {
+      B.add(box(1.6, 0.85, 1.7), xf([hx, 1.025, hz]), MAT.HBM, PART.HBM, 1, hbmSeed++);
+      B.add(box(1.7, 0.05, 1.8), xf([hx, 0.62, hz]), MAT.SOLDER, PART.HBM);
+    }
+  }
+
+  /* ------------------------------------- co-packaged optics + pigtails */
+  for (let i = 0; i < GEO.photX.length; i++) {
+    const px = GEO.photX[i];
+    B.add(box(2.2, 0.32, 1.5), xf([px, 0.27, GEO.photZ]), MAT.PHOTONIC, PART.PHOTONIC, 1, i);
+    B.add(box(2.4, 0.06, 1.7), xf([px, 0.14, GEO.photZ]), MAT.SUBSTRATE, PART.PHOTONIC);
+    // heat spreader ring
+    B.add(box(2.6, 0.10, 0.12), xf([px, 0.20, GEO.photZ - 0.86]), MAT.COPPER, PART.PHOTONIC);
+    // fibre pigtail arcing away to the bracket
+    for (let f = 0; f < 3; f++) {
+      const z0 = GEO.photZ - 0.4 + f * 0.4;
+      const zEnd = -4.2 + i * 2.8 + (f - 1) * 0.3;
+      const pathPts = [];
+      for (let s = 0; s <= 16; s++) {
+        const t = s / 16;
+        const x = lerp(px - 1.2, -14.9, t);
+        const y = 0.35 + Math.sin(t * Math.PI) * (0.55 + f * 0.12);
+        const z = lerp(z0, zEnd, smoothstep(0, 1, t));
+        pathPts.push([x, y, z]);
+      }
+      B.add(tube(pathPts, 0.055, 7), null, MAT.FIBER, PART.FIBER, 1, f * 0.3 + i * 0.11);
+    }
+  }
+
+  /* ------------------------------------------------ vertical power stack */
+  for (let r = 0; r < 2; r++) {
+    const z = r ? 3.1 : -3.1;
+    for (let i = 0; i < 8; i++) {
+      const x = 1.6 + i * 1.42;
+      B.add(roundedBox(0.95, 0.34, 0.95, 0.05, 2), xf([x, 0.28, z]), MAT.PLASTIC, PART.VRM);
+      B.add(box(0.75, 0.02, 0.75), xf([x, 0.115, z]), MAT.GOLD, PART.VRM);
+      B.add(roundedBox(1.15, 0.72, 1.15, 0.1, 2), xf([x, 0.47, z + (r ? 1.5 : -1.5)]), MAT.PLASTIC, PART.INDUCTOR);
+      B.add(box(1.25, 0.16, 0.5), xf([x, 0.30, z + (r ? 1.5 : -1.5)]), MAT.COPPER, PART.INDUCTOR);
+    }
+  }
+  for (let i = 0; i < 10; i++) {
+    const x = 2.2 + (i % 5) * 2.2, z = i < 5 ? -0.9 : 0.9;
+    B.add(cylinder(0.42, 0.42, 0.95, 18), xf([x, 0.585, z]), MAT.ALUM, PART.CAPS);
+    B.add(cylinder(0.44, 0.44, 0.06, 18), xf([x, 1.03, z]), MAT.PLASTIC, PART.CAPS);
+  }
+
+  /* --------------------------------------------- 48 V inlet + fabric port */
+  B.add(roundedBox(2.6, 1.0, 2.2, 0.12, 2), xf([13.6, 0.62, 0]), MAT.PLASTIC, PART.POWER);
+  for (let i = 0; i < 6; i++) {
+    B.add(box(0.22, 0.5, 0.22), xf([12.7 + (i % 3) * 0.7, 0.72, i < 3 ? -0.5 : 0.5]), MAT.GOLD, PART.POWER);
+  }
+  B.add(roundedBox(13.0, 0.9, 0.9, 0.1, 2), xf([-2.0, 0.56, 5.3]), MAT.PLASTIC, PART.HYPERMESH);
+  for (let i = 0; i < 44; i++) {
+    B.add(box(0.14, 0.5, 0.5), xf([-8.2 + i * 0.29, 0.58, 5.3]), MAT.GOLD, PART.HYPERMESH);
+  }
+
+  /* ---------------------------------------------------- discrete passives */
+  const keepOut = (x, z) =>
+    (x > K.x - K.w / 2 - 0.4 && x < K.x + K.w / 2 + 0.4 && Math.abs(z) < K.d / 2 + 0.4) ||
+    (x > 0.6 && x < 12.6 && Math.abs(z) < 5.0) ||
+    (z < -4.0 && x < 0.6) || (z > 4.6) || (x > 12.0);
+  for (let i = 0; i < 260; i++) {
+    const x = -15 + rnd() * 30, z = -5.4 + rnd() * 10.8;
+    if (keepOut(x, z)) continue;
+    const big = rnd() > 0.72;
+    const w = big ? 0.34 : 0.16, d = big ? 0.18 : 0.09;
+    const rot = rnd() > 0.5 ? Math.PI / 2 : 0;
+    B.add(box(w, big ? 0.12 : 0.07, d), xf([x, 0.11 + (big ? 0.06 : 0.035), z], [0, rot, 0]),
+      rnd() > 0.4 ? MAT.CERAMIC : MAT.PLASTIC, PART.SMD);
+  }
+
+  /* ---------------------------------------------- vapour chamber + fins */
+  // Evaporator plate (micro-channel side faces the dies).
+  B.add(box(23.5, 0.26, 10.6), xf([-2.2, 1.62, 0]), MAT.CHANNEL, PART.CHANNELS);
+  // Condenser lid.
+  B.add(roundedBox(23.5, 0.42, 10.6, 0.08, 2), xf([-2.2, 1.97, 0]), MAT.COPPER, PART.COLDPLATE);
+  B.add(box(23.0, 0.05, 10.2), xf([-2.2, 1.45, 0]), MAT.GRAPHITE, PART.COLDPLATE);
+
+  const finCount = 34;
+  for (let i = 0; i < finCount; i++) {
+    const z = -5.0 + (i / (finCount - 1)) * 10.0;
+    B.add(box(22.0, 2.9, 0.09), xf([-2.2, 3.55, z]), MAT.ALUM, PART.FINS);
+  }
+  for (let i = 0; i < 3; i++) {
+    B.add(box(0.5, 2.9, 10.2), xf([-12.6 + i * 10.4, 3.55, 0]), MAT.ALUM, PART.FINS);
+  }
+
+  /* ------------------------------------------------------ exoframe shroud */
+  for (const z of [-6.35, 6.35]) {
+    B.add(roundedBox(31.0, 5.6, 0.55, 0.14, 3), xf([-0.4, 2.6, z]), MAT.ANODIZED, PART.SHROUD);
+  }
+  B.add(roundedBox(0.55, 5.6, 13.2, 0.14, 3), xf([14.8, 2.6, 0]), MAT.ANODIZED, PART.SHROUD);
+  /* Top deck: three milled plates with two intake slots between them. Closing
+     the top gives the card a designed face instead of a haze of fin edges. */
+  for (const [z, d] of [[-4.7, 3.2], [0, 4.2], [4.7, 3.2]]) {
+    B.add(roundedBox(29.6, 0.38, d, 0.10, 2), xf([-0.4, 5.56, z]), MAT.ANODIZED, PART.SHROUD);
+  }
+  // lime inlays lining the intake slots
+  for (const z of [-3.06, -2.14, 2.14, 3.06]) {
+    B.add(box(28.4, 0.04, 0.09), xf([-0.4, 5.755, z]), MAT.LIME, PART.LIGHTBAR);
+  }
+  // telemetry light bar down the front rail
+  B.add(box(26.0, 0.42, 0.05), xf([-1.4, 4.3, -6.64]), MAT.LIME, PART.LIGHTBAR);
+  B.add(box(26.0, 0.42, 0.05), xf([-1.4, 4.3, 6.64]), MAT.LIME, PART.LIGHTBAR);
+  // wordmark plate
+  B.add(roundedBox(0.85, 0.85, 0.05, 0.12, 2), xf([7.1, 2.2, 6.66]), MAT.LIME, PART.LOGO);
+  B.add(roundedBox(3.4, 0.52, 0.04, 0.08, 2), xf([9.3, 2.2, 6.65]), MAT.CHROME, PART.LOGO);
+  B.add(roundedBox(3.0, 0.42, 0.04, 0.07, 2), xf([-9.5, 2.2, 6.65]), MAT.CHROME, PART.LOGO);
+
+  /* --------------------------------------------------------------- screws */
+  for (const sx of [-14.9, -0.4, 14.0]) {
+    for (const sz of [-5.6, 5.6]) {
+      B.add(cylinder(0.22, 0.24, 0.3, 12), xf([sx, -0.62, sz]), MAT.CHROME, PART.SCREWS);
+    }
+  }
+
+  B.fixWinding();
+  return B;
+}
+
+/** Points of interest on the finished board, in world space. */
+const ANCHORS = {
+  die: [(GEO.dieA + GEO.dieB) / 2, 1.22, 0],
+  dieA: [GEO.dieA, 1.22, -0.6],
+  cache: [GEO.dieA, 0.70, 2.35],
+  hbm: [GEO.hbmX[0], 1.46, GEO.hbmZ[0]],
+  optics: [GEO.photX[1], 0.45, GEO.photZ],
+  vapour: [-2.2, 1.75, 3.6],
+  power: [6.0, 0.85, 4.6],
+  sched: [GEO.dieA, 1.23, 1.35],
+  trust: [GEO.dieB, 1.23, -1.6],
+};
+
+
+/* ==== 07-features.js =================================================== */
+/* ============================================================================
+   07 · FEATURE DATABASE
+   Eight invented-but-plausible subsystems. Each one owns a camera framing, a
+   cutaway recipe (which parts dissolve, which lift away) and a macro framing
+   that puts the lens millimetres from the silicon.
+   ========================================================================== */
+
+const COOLER = [PART.SHROUD, PART.FINS, PART.COLDPLATE, PART.CHANNELS, PART.LIGHTBAR];
+const COOLER_KEEP_CHANNELS = [PART.SHROUD, PART.FINS, PART.COLDPLATE, PART.LIGHTBAR];
+
+const FEATURES = [
+  {
+    id: 'die',
+    side: 'left',
+    tag: '01',
+    kicker: 'COMPUTE',
+    title: 'Twin-Reticle Compute Engine',
+    teaser: 'Two reticle-limit dies fused into one logical GPU.',
+    anchor: ANCHORS.die,
+    view: { target: ANCHORS.die, yaw: 0.30, pitch: 0.72, dist: 11.5 },
+    macro: { target: [GEO.dieA + 0.3, 1.21, -0.4], yaw: 0.22, pitch: 0.55, dist: 1.35 },
+    hide: COOLER,
+    lift: {},
+    macroHint: 'Streaming-multiprocessor tiles · 26 µm cell rows · live NoC packets',
+    specs: [
+      ['Transistors', '208 B'],
+      ['Process', 'TSMC N2P-A'],
+      ['Die area', '2 × 858 mm²'],
+      ['Bridge bandwidth', '24 TB/s'],
+      ['FP4 dense', '41 PFLOPS'],
+      ['SM count', '2 × 192'],
+    ],
+    body: `Rubin abandons the single-die ceiling. Two reticle-limit dies sit 4 mm apart on a
+    CoWoS-Ω interposer and are stitched by a <b>silicon reticle bridge</b> carrying 24 TB/s of
+    coherent traffic — enough that the scheduler, the cache hierarchy and the memory controllers
+    all believe they are running on one piece of silicon. Cross-die latency is 11 ns, roughly the
+    cost of an on-die L2 hop on the previous generation.`,
+  },
+  {
+    id: 'cache',
+    side: 'left',
+    tag: '02',
+    kicker: 'MEMORY',
+    title: 'Dark Matter Cache',
+    teaser: '1.2 GB of SRAM you never see — bonded beneath the dies.',
+    anchor: ANCHORS.cache,
+    view: { target: [GEO.dieA, 0.9, 0.4], yaw: -0.55, pitch: 0.55, dist: 10.0 },
+    macro: { target: [GEO.dieA + 0.2, 0.70, 1.9], yaw: -0.35, pitch: 0.30, dist: 1.6 },
+    hide: COOLER,
+    lift: { [PART.DIE_A]: [0, 3.4, 0], [PART.BUMPS]: [0, 1.6, 0], [PART.SCHED]: [0, 3.4, 0] },
+    macroHint: 'Hybrid-bond micro-bumps at 3 µm pitch over stacked SRAM macros',
+    specs: [
+      ['Capacity', '1.2 GB'],
+      ['Bandwidth', '128 TB/s'],
+      ['Load-to-use', '11 ns'],
+      ['Bond pitch', '3 µm'],
+      ['Bonding', 'Hybrid Cu–Cu'],
+      ['Power', '0.19 pJ/bit'],
+    ],
+    body: `Named for the astronomer who proved the universe is mostly made of things you cannot see,
+    the <b>Dark Matter Cache</b> is a full SRAM wafer hybrid-bonded <i>underneath</i> each compute die.
+    It never appears in the occupancy model and it is never explicitly addressed — the memory system
+    simply behaves as though HBM were twenty times faster than it is. Lift the die away and the
+    cache is right there, holding 1.2 GB at 128 TB/s.`,
+  },
+  {
+    id: 'hbm',
+    side: 'left',
+    tag: '03',
+    kicker: 'BANDWIDTH',
+    title: 'HBM4e Halo Stacks',
+    teaser: '288 GB at 22.4 TB/s, ringed around the compute.',
+    anchor: ANCHORS.hbm,
+    view: { target: [GEO.hbmX[0], 1.1, GEO.hbmZ[0]], yaw: -0.95, pitch: 0.42, dist: 8.0 },
+    macro: { target: [GEO.hbmX[0] - 0.82, 1.05, GEO.hbmZ[0] + 0.3], yaw: -1.42, pitch: 0.10, dist: 1.5 },
+    hide: COOLER,
+    lift: {},
+    macroHint: 'Sixteen laminated DRAM dies · through-silicon vias at the seam',
+    specs: [
+      ['Capacity', '288 GB'],
+      ['Bandwidth', '22.4 TB/s'],
+      ['Stacks', '8 × 16-high'],
+      ['Per stack', '36 GB · 2.8 TB/s'],
+      ['Interface', '2048-bit @ 11 Gb/s'],
+      ['Refresh', 'Zero-stall ZQ'],
+    ],
+    body: `Eight 16-high HBM4e stacks form a halo around the compute dies — close enough that the
+    longest wire on the interposer is under 9 mm. Each stack carries its own base-die memory
+    controller with an <b>on-package refresh scheduler</b>, so refresh never collides with a tensor
+    load. Aggregate: 288 GB, 22.4 TB/s, and a measured 94% bus utilisation on 4-bit attention kernels.`,
+  },
+  {
+    id: 'optics',
+    side: 'left',
+    tag: '04',
+    kicker: 'FABRIC',
+    title: 'LightBridge Co-Packaged Optics',
+    teaser: 'Photons leave the package — copper never gets a chance.',
+    anchor: ANCHORS.optics,
+    view: { target: [GEO.photX[1], 0.6, GEO.photZ + 0.4], yaw: 0.15, pitch: 0.40, dist: 8.5 },
+    macro: { target: [GEO.photX[1] + 0.1, 0.45, GEO.photZ], yaw: 0.05, pitch: 0.42, dist: 1.5 },
+    hide: COOLER,
+    lift: {},
+    macroHint: 'Silicon waveguides, ring modulators and live traffic at 1310 nm',
+    specs: [
+      ['Aggregate', '51.2 Tb/s'],
+      ['Engines', '3 × 17.1 Tb/s'],
+      ['Energy', '4.1 pJ/bit'],
+      ['Reach', '2 km · SMF'],
+      ['Wavelengths', '16 λ per fibre'],
+      ['Latency add', '38 ns'],
+    ],
+    body: `Electrical SerDes stop at the package edge. Three silicon-photonics engines sit inside the
+    lid, modulating 16 wavelengths per fibre with micro-ring resonators tuned by an on-die thermal
+    control loop. The result is <b>51.2 Tb/s leaving the accelerator as light</b>, at a third of the
+    energy per bit of a retimed copper link, and with a flat latency profile out to two kilometres —
+    a rack becomes a plausible unit of compute.`,
+  },
+  {
+    id: 'vapour',
+    side: 'right',
+    tag: '05',
+    kicker: 'THERMAL',
+    title: 'Two-Phase Micro-Channel Evaporator',
+    teaser: '1.9 kW pulled out through 0.18 mm channels.',
+    anchor: ANCHORS.vapour,
+    view: { target: [-2.2, 1.9, 1.5], yaw: 0.42, pitch: 0.78, dist: 15.0 },
+    macro: { target: [-6.0, 1.66, 2.2], yaw: 0.20, pitch: 0.50, dist: 1.7 },
+    hide: COOLER_KEEP_CHANNELS,
+    lift: { [PART.CHANNELS]: [0, 1.1, 0] },
+    macroHint: 'Skived copper fins · 0.18 mm channels · vapour slugs in flight',
+    specs: [
+      ['Heat removed', '1.9 kW'],
+      ['Channels', '2,048 × 0.18 mm'],
+      ['Working fluid', 'R-1233zd(E)'],
+      ['ΔT die-to-fluid', '14 °C'],
+      ['Pump power', '9 W'],
+      ['Dryout margin', '1.6×'],
+    ],
+    body: `A single-phase cold plate gives up somewhere north of a kilowatt. Rubin's evaporator is
+    <b>two-phase</b>: the coolant boils directly above the hotspots, and the latent heat of
+    vaporisation does the work. 2,048 skived channels, each 180 µm wide, sit 400 µm from the die
+    surface. Vapour quality is measured per-channel and the pump trims flow in 12 ms — you can watch
+    the slugs sprint down the channels in the macro view.`,
+  },
+  {
+    id: 'power',
+    side: 'right',
+    tag: '06',
+    kicker: 'POWER',
+    title: 'Vertical Power Delivery',
+    teaser: '48 V straight to 0.62 V, 1,850 A, in one conversion.',
+    anchor: ANCHORS.power,
+    view: { target: [6.0, 0.8, 2.4], yaw: 0.75, pitch: 0.55, dist: 12.0 },
+    macro: { target: [4.4, 0.75, 4.6], yaw: 0.55, pitch: 0.28, dist: 2.0 },
+    hide: COOLER,
+    lift: {},
+    macroHint: 'Coupled inductors, GaN half-bridges and the backside power via field',
+    specs: [
+      ['Peak current', '1,850 A'],
+      ['Conversion', '48 V → 0.62 V'],
+      ['Efficiency', '96.4%'],
+      ['Phases', '16 coupled'],
+      ['Transient', '2.1 mV/A'],
+      ['Delivery', 'Backside PDN'],
+    ],
+    body: `Sixteen GaN half-bridges convert 48 V to core voltage in a single stage, directly beneath
+    the package. Power reaches the transistors from the <i>back</i> of the wafer through a dedicated
+    via layer, so the front-side metal stack is freed for signal routing — worth roughly 7% frequency
+    at the same power. Droop is held to 2.1 mV/A through a 1,850 A load step.`,
+  },
+  {
+    id: 'sched',
+    side: 'right',
+    tag: '07',
+    kicker: 'SILICON',
+    title: 'Rotation-Curve Scheduler',
+    teaser: 'Every SM turns at the same speed, whatever its radius.',
+    anchor: ANCHORS.sched,
+    view: { target: [GEO.dieA, 1.2, 1.35], yaw: 0.18, pitch: 0.80, dist: 6.0 },
+    macro: { target: [GEO.dieA, 1.22, 1.35], yaw: 0.10, pitch: 0.88, dist: 1.05 },
+    hide: COOLER,
+    lift: {},
+    macroHint: 'Warp orbits held at constant angular velocity across the die',
+    specs: [
+      ['Resident warps', '128 K'],
+      ['Rebalance', 'every 4 ns'],
+      ['Occupancy flatness', '99.2%'],
+      ['Tail jitter', '< 0.3%'],
+      ['Domains', '384 SMs'],
+      ['Overhead', '0.4% area'],
+    ],
+    body: `Vera Rubin's great discovery was that galaxies rotate <i>flat</i>: stars at the edge move as
+    fast as stars near the core, which is how we know dark matter is there. Rubin's hardware scheduler
+    borrows the idea. Warps at the electrically distant edge of the die are held at the <b>same
+    effective throughput</b> as warps beside the cache, by continuously redistributing power budget and
+    issue slots. The occupancy curve across 384 SMs comes out flat to 99.2%.`,
+  },
+  {
+    id: 'trust',
+    side: 'right',
+    tag: '08',
+    kicker: 'SECURITY',
+    title: 'Photon-Sealed Root of Trust',
+    teaser: 'Post-quantum attestation, sealed under a tamper mesh.',
+    anchor: ANCHORS.trust,
+    view: { target: [GEO.dieB, 1.2, -1.6], yaw: -0.22, pitch: 0.78, dist: 5.5 },
+    macro: { target: [GEO.dieB, 1.22, -1.6], yaw: -0.10, pitch: 0.86, dist: 0.95 },
+    hide: COOLER,
+    lift: {},
+    macroHint: 'Serpentine tamper-sense mesh over the enclave, sampled at 4 GHz',
+    specs: [
+      ['Signature', 'ML-DSA-87'],
+      ['Key exchange', 'ML-KEM-1024'],
+      ['Tamper mesh', '100 µm serpentine'],
+      ['Zeroise', '8 ms'],
+      ['Boot chain', 'Fully attested'],
+      ['Tenancy', 'Hardware-partitioned'],
+    ],
+    body: `Every tenant on a shared accelerator wants proof of what they are running on. A dedicated
+    enclave on die B holds post-quantum identity keys behind a <b>serpentine tamper mesh</b> — a
+    100 µm sense wire woven over the block, sampled at 4 GHz. Break it, probe it, chill it, and the
+    keys are gone in 8 ms. Attestation covers the boot chain, the firmware, the optics and the
+    scheduler's partition table.`,
+  },
+];
+
+/** Headline numbers shown in the overview spec ribbon. */
+const HEADLINE = [
+  ['41', 'PFLOPS FP4'],
+  ['288', 'GB HBM4e'],
+  ['22.4', 'TB/s memory'],
+  ['51.2', 'Tb/s optical'],
+  ['208', 'B transistors'],
+  ['1.9', 'kW two-phase'],
+];
+
+
+/* ==== 08-renderer.js =================================================== */
+/* ============================================================================
+   08 · RENDERER — orchestrates the frame.
+   shadow → backdrop → forward PBR → dust → SSAO → DoF → bloom → grade → FXAA
+   ========================================================================== */
+
+class Renderer {
+  constructor(canvas) {
+    const attrs = {
+      alpha: false, antialias: false, depth: true, stencil: false,
+      premultipliedAlpha: false, preserveDrawingBuffer: false,
+      powerPreference: 'high-performance', desynchronized: false,
+    };
+    const gl = canvas.getContext('webgl2', attrs);
+    if (!gl) throw new Error('WebGL2 unavailable');
+    this.gl = gl;
+    this.canvas = canvas;
+
+    this.hasFloat = !!gl.getExtension('EXT_color_buffer_float');
+    gl.getExtension('OES_texture_float_linear');
+    const maxSamples = gl.getParameter(gl.MAX_SAMPLES) || 0;
+    this.samples = Math.min(4, maxSamples);
+
+    this.progs = {
+      scene: new Program(gl, SCENE_VS, SCENE_FS, 'scene'),
+      depth: new Program(gl, DEPTH_VS, DEPTH_FS, 'depth'),
+      pick: new Program(gl, PICK_VS, PICK_FS, 'pick'),
+      bg: new Program(gl, BG_VS, BG_FS, 'bg'),
+      dust: new Program(gl, DUST_VS, DUST_FS, 'dust'),
+      ssao: new Program(gl, QUAD_VS, SSAO_FS, 'ssao'),
+      blur: new Program(gl, QUAD_VS, BLUR_FS, 'blur'),
+      copy: new Program(gl, QUAD_VS, COPY_FS, 'copy'),
+      bright: new Program(gl, QUAD_VS, BRIGHT_FS, 'bright'),
+      comp: new Program(gl, QUAD_VS, COMPOSITE_FS, 'composite'),
+      fxaa: new Program(gl, QUAD_VS, FXAA_FS, 'fxaa'),
+    };
+
+    this.emptyVao = gl.createVertexArray();
+    this._buildMesh();
+    this._buildDust();
+
+    const F = this.hasFloat;
+    this.shadowSize = 2048;
+    this.shadowT = new Target(gl, this.shadowSize, this.shadowSize, { depthTexture: true, filter: false });
+    this.sceneT = new Target(gl, 2, 2, { float: F, depthTexture: true, samples: this.samples });
+    this.aoT = new Target(gl, 2, 2, {});
+    this.aoTmp = new Target(gl, 2, 2, {});
+    this.dofHalf = new Target(gl, 2, 2, { float: F });
+    this.dofHalfTmp = new Target(gl, 2, 2, { float: F });
+    this.dofQuad = new Target(gl, 2, 2, { float: F });
+    this.dofQuadTmp = new Target(gl, 2, 2, { float: F });
+    this.bloom = [];
+    for (let i = 0; i < 5; i++) {
+      this.bloom.push({
+        a: new Target(gl, 2, 2, { float: F }),
+        b: new Target(gl, 2, 2, { float: F }),
+      });
+    }
+    this.ldrT = new Target(gl, 2, 2, {});
+    this.pickT = new Target(gl, 2, 2, { depth: true, filter: false });
+
+    this.lightVP = M4.create();
+    this.viewProj = M4.create();
+    this.view = M4.create();
+    this.proj = M4.create();
+    this.invProj = M4.create();
+    this._pickPixel = new Uint8Array(4);
+    this.width = 2; this.height = 2; this.dpr = 1;
+  }
+
+  /* ------------------------------------------------------------- geometry */
+  _buildMesh() {
+    const gl = this.gl;
+    const builder = buildScene();
+    const packed = builder.pack();
+    this.triCount = builder.triCount;
+    this.vertCount = packed.vertexCount;
+    this.indexCount = packed.indices.length;
+    this.indexType = packed.indices instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
+
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, packed.vertices, gl.STATIC_DRAW);
+    const S = 12 * 4;
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, S, 12);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 24);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, S, 32);
+    const ibo = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, packed.indices, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+  }
+
+  _buildDust() {
+    const gl = this.gl;
+    const N = 900;
+    const data = new Float32Array(N * 5);
+    const rnd = mulberry32(77);
+    for (let i = 0; i < N; i++) {
+      const r = 12 + Math.pow(rnd(), 0.6) * 46;
+      const a = rnd() * Math.PI * 2;
+      data[i * 5] = Math.cos(a) * r;
+      data[i * 5 + 1] = -6 + rnd() * 30;
+      data[i * 5 + 2] = Math.sin(a) * r * 0.8;
+      data[i * 5 + 3] = rnd();
+      data[i * 5 + 4] = rnd();
+    }
+    this.dustCount = N;
+    this.dustVao = gl.createVertexArray();
+    gl.bindVertexArray(this.dustVao);
+    const b = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
+    gl.bindVertexArray(null);
+  }
+
+  /* --------------------------------------------------------------- resize */
+  resize(w, h, dpr) {
+    this.width = Math.max(2, Math.round(w * dpr));
+    this.height = Math.max(2, Math.round(h * dpr));
+    this.dpr = dpr;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    const W = this.width, H = this.height;
+    this.sceneT.resize(W, H);
+    this.ldrT.resize(W, H);
+    this.aoT.resize(W >> 1, H >> 1);
+    this.aoTmp.resize(W >> 1, H >> 1);
+    this.dofHalf.resize(W >> 1, H >> 1);
+    this.dofHalfTmp.resize(W >> 1, H >> 1);
+    this.dofQuad.resize(W >> 2, H >> 2);
+    this.dofQuadTmp.resize(W >> 2, H >> 2);
+    for (let i = 0; i < this.bloom.length; i++) {
+      const s = 1 << (i + 1);
+      this.bloom[i].a.resize(W / s, H / s);
+      this.bloom[i].b.resize(W / s, H / s);
+    }
+    this.pickT.resize(Math.max(2, W >> 1), Math.max(2, H >> 1));
+  }
+
+  /* ------------------------------------------------------------- helpers */
+  _quad(prog, uniforms, target) {
+    const gl = this.gl;
+    if (target) { target.bind(); } else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.width, this.height);
+    }
+    prog.use(uniforms);
+    gl.bindVertexArray(this.emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  _blurInto(src, tmp, dst, radius) {
+    this._quad(this.progs.blur, { u_tex: src.tex, u_dir: [radius / dst.w, 0] }, tmp);
+    this._quad(this.progs.blur, { u_tex: tmp.tex, u_dir: [0, radius / dst.h] }, dst);
+  }
+
+  /* -------------------------------------------------------------- camera */
+  setCamera(cam, aspect) {
+    const near = Math.max(0.004, cam.dist * 0.012);
+    const far = Math.max(400, cam.dist * 60);
+    this.near = near; this.far = far;
+    M4.perspective(this.proj, cam.fov, aspect, near, far);
+    M4.lookAt(this.view, cam.pos, cam.target, [0, 1, 0]);
+    M4.mul(this.viewProj, this.proj, this.view);
+    M4.invert(this.invProj, this.proj);
+  }
+
+  /* ---------------------------------------------------------------- draw */
+  render(s) {
+    const gl = this.gl;
+    const parts = s.parts, partFx = s.partFx;
+
+    /* --- shadow map ---------------------------------------------------- */
+    const lightDir = V3.norm([0.42, 0.86, 0.30]);
+    const centre = [-2, 1.5, 0], ext = 21;
+    const eye = V3.add(centre, V3.scale(lightDir, 40));
+    const lv = M4.lookAt(M4.create(), eye, centre, [0, 1, 0]);
+    const lp = M4.ortho(M4.create(), -ext, ext, -ext * 0.62, ext * 0.62, 1, 90);
+    M4.mul(this.lightVP, lp, lv);
+
+    this.shadowT.bind();
+    gl.clearColor(1, 1, 1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.FRONT);
+    this.progs.depth.use({ u_viewProj: this.lightVP, u_part: parts });
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.indexCount, this.indexType, 0);
+    gl.cullFace(gl.BACK);
+
+    /* --- main pass ----------------------------------------------------- */
+    this.sceneT.bind();
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    this.progs.bg.use({ u_res: [this.width, this.height], u_time: s.time, u_focusAmt: s.focusAmt });
+    gl.bindVertexArray(this.emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
+    this.progs.scene.use({
+      u_viewProj: this.viewProj,
+      u_camPos: s.camPos,
+      u_time: s.time,
+      u_lightVP: this.lightVP,
+      u_shadow: this.shadowT.depthTex,
+      u_shadowTexel: 1 / this.shadowSize,
+      u_part: parts,
+      u_partFx: partFx,
+      u_xrayAmt: s.xray,
+      u_focusPoint: s.focusPoint,
+      u_focusAmt: s.focusAmt,
+    });
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.indexCount, this.indexType, 0);
+
+    // atmospheric dust
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.depthMask(false);
+    this.progs.dust.use({ u_viewProj: this.viewProj, u_time: s.time, u_pixelRatio: this.dpr });
+    gl.bindVertexArray(this.dustVao);
+    gl.drawArrays(gl.POINTS, 0, this.dustCount);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+
+    this.sceneT.resolve();
+
+    /* --- SSAO ---------------------------------------------------------- */
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    this._quad(this.progs.ssao, {
+      u_depth: this.sceneT.depthTex,
+      u_invProj: this.invProj,
+      u_proj: this.proj,
+      u_res: [this.aoT.w, this.aoT.h],
+      u_radius: s.aoRadius,
+      u_time: s.time,
+    }, this.aoT);
+    this._blurInto(this.aoT, this.aoTmp, this.aoT, 1.0);
+
+    /* --- depth of field source ----------------------------------------- */
+    this._quad(this.progs.copy, { u_tex: this.sceneT.tex }, this.dofHalf);
+    this._blurInto(this.dofHalf, this.dofHalfTmp, this.dofHalf, 1.4);
+    this._quad(this.progs.copy, { u_tex: this.dofHalf.tex }, this.dofQuad);
+    this._blurInto(this.dofQuad, this.dofQuadTmp, this.dofQuad, 1.8);
+
+    /* --- bloom chain ---------------------------------------------------- */
+    this._quad(this.progs.bright, {
+      u_tex: this.sceneT.tex, u_threshold: 1.30, u_knee: 0.6,
+    }, this.bloom[0].a);
+    this._blurInto(this.bloom[0].a, this.bloom[0].b, this.bloom[0].a, 1.2);
+    for (let i = 1; i < this.bloom.length; i++) {
+      this._quad(this.progs.copy, { u_tex: this.bloom[i - 1].a.tex }, this.bloom[i].a);
+      this._blurInto(this.bloom[i].a, this.bloom[i].b, this.bloom[i].a, 1.3);
+    }
+
+    /* --- composite + FXAA ---------------------------------------------- */
+    this._quad(this.progs.comp, {
+      u_scene: this.sceneT.tex,
+      u_depth: this.sceneT.depthTex,
+      u_ao: this.aoT.tex,
+      u_b0: this.bloom[0].a.tex,
+      u_b1: this.bloom[1].a.tex,
+      u_b2: this.bloom[2].a.tex,
+      u_b3: this.bloom[3].a.tex,
+      u_b4: this.bloom[4].a.tex,
+      u_dofHalf: this.dofHalf.tex,
+      u_dofQuarter: this.dofQuad.tex,
+      u_res: [this.width, this.height],
+      u_time: s.time,
+      u_bloom: s.bloom,
+      u_aoAmt: s.ao,
+      u_focusDist: s.focusDist,
+      u_dofAmt: s.dof,
+      u_near: this.near,
+      u_far: this.far,
+      u_vignette: s.vignette,
+      u_exposure: s.exposure,
+      u_reveal: s.reveal,
+    }, this.ldrT);
+
+    this._quad(this.progs.fxaa, { u_tex: this.ldrT.tex, u_res: [this.width, this.height] }, null);
+    gl.enable(gl.CULL_FACE);
+  }
+
+  /** Read the part id under a CSS-pixel coordinate. Returns -1 for background. */
+  pick(x, y, parts) {
+    const gl = this.gl;
+    const t = this.pickT;
+    t.bind();
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    this.progs.pick.use({ u_viewProj: this.viewProj, u_part: parts });
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.indexCount, this.indexType, 0);
+    const px = clamp(Math.round(x * this.dpr / 2), 0, t.w - 1);
+    const py = clamp(Math.round((this.height / this.dpr - y) * this.dpr / 2), 0, t.h - 1);
+    gl.readPixels(px, py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this._pickPixel);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return this._pickPixel[0] - 1;
+  }
+}
+
+
+/* ==== 09-app.js ======================================================== */
+/* ============================================================================
+   09 · APP — camera cinematics, cutaway choreography, callout projection,
+   pointer/keyboard/touch input, and the HUD.
+   ========================================================================== */
+
+const OVERVIEW = { target: [-1.0, 2.0, 0], yaw: 0.62, pitch: 0.44, dist: 62 };
+const ORBIT_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown', '+', '=', '-', '_']);
+
+/* Which part belongs to which feature, for click-through on the model. */
+const PART_FEATURE = {};
+{
+  const map = {
+    die: [PART.DIE_A, PART.DIE_B, PART.BRIDGE, PART.INTERPOSER, PART.SUBSTRATE],
+    cache: [PART.CACHE, PART.BUMPS],
+    hbm: [PART.HBM],
+    optics: [PART.PHOTONIC, PART.FIBER, PART.PORTS, PART.BRACKET],
+    vapour: [PART.CHANNELS, PART.COLDPLATE, PART.FINS, PART.SHROUD],
+    power: [PART.VRM, PART.INDUCTOR, PART.CAPS, PART.POWER],
+    sched: [PART.SCHED],
+    trust: [PART.SECURITY],
+  };
+  for (const k in map) for (const p of map[k]) PART_FEATURE[p] = k;
+}
+
+/* Exploded-view displacement per part. */
+const EXPLODE = {};
+{
+  const e = {
+    [PART.SHROUD]: [0, 13, 0], [PART.FINS]: [0, 9.5, 0],
+    [PART.COLDPLATE]: [0, 6.6, 0], [PART.CHANNELS]: [0, 5.2, 0],
+    [PART.DIE_A]: [0, 3.4, 0], [PART.DIE_B]: [0, 3.4, 0], [PART.BRIDGE]: [0, 3.4, 0],
+    [PART.SCHED]: [0, 3.4, 0], [PART.SECURITY]: [0, 3.4, 0],
+    [PART.BUMPS]: [0, 2.4, 0], [PART.CACHE]: [0, 1.7, 0],
+    [PART.HBM]: [0, 2.2, 0],
+    [PART.BACKPLATE]: [0, -5.5, 0], [PART.SCREWS]: [0, -7.5, 0],
+    [PART.PHOTONIC]: [0, 1.2, -2.2], [PART.FIBER]: [0, 1.0, -1.2],
+    [PART.INDUCTOR]: [0, 1.6, 0], [PART.CAPS]: [0, 1.6, 0], [PART.VRM]: [0, 1.0, 0],
+  };
+  for (const k in e) EXPLODE[k] = e[k];
+}
+
+class App {
+  constructor() {
+    this.canvas = document.getElementById('gl');
+    this.renderer = new Renderer(this.canvas);
+
+    this.cam = { ...OVERVIEW, target: OVERVIEW.target.slice(), fov: 0.60, pos: [0, 0, 0] };
+    this.goal = { ...OVERVIEW, target: OVERVIEW.target.slice(), fov: 0.60 };
+    this.tween = null;
+    this.mode = 'overview';
+    this.active = null;          // active feature object
+    this.stage = 'view';         // 'view' | 'macro'
+    this.exploded = false;
+    this.autoRotate = true;
+    this.idle = 0;
+    this.hoverPart = -1;
+    this.time = 0;
+    this.reveal = 0;
+    this.uiHidden = false;
+
+    this.parts = new Float32Array(32 * 4);
+    this.partFx = new Float32Array(32 * 4);
+    this.pState = [];
+    for (let i = 0; i < 32; i++) {
+      this.pState.push({ a: 1, aG: 1, o: [0, 0, 0], oG: [0, 0, 0], hl: 0, hlG: 0 });
+      this.parts[i * 4 + 3] = 1;
+    }
+
+    this.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.hoverFeature = null;
+    this.pickFeature = null;
+    this._buildRibbon();
+    this._buildCallouts();
+    this._bindInput();
+    this._resize();
+    window.addEventListener('resize', () => this._resize());
+
+    this.frames = 0; this.fpsT = 0; this.fps = 0;
+    document.getElementById('stat-tris').textContent =
+      (this.renderer.triCount / 1000).toFixed(1) + 'k';
+    this.last = performance.now();
+    this._intro();
+    requestAnimationFrame((t) => this._loop(t));
+  }
+
+  /** Finish any camera flight and transition instantly (headless harness). */
+  snap() {
+    this.reveal = 1.2;
+    if (this.tween) { this.tween.t = 1; this._updateCamera(0.0001); }
+    Object.assign(this.cam, {
+      yaw: this.goal.yaw, pitch: this.goal.pitch, dist: this.goal.dist,
+    });
+    this.cam.target = this.goal.target.slice();
+    for (let i = 0; i < 32; i++) {
+      const p = this.pState[i];
+      p.a = p.aG; p.hl = p.hlG; p.o = p.oG.slice();
+    }
+    this._updateCamera(0.0001);
+  }
+
+  /* --------------------------------------------------------------- intro */
+  _intro() {
+    const start = { target: [-1, 2.5, 0], yaw: -1.35, pitch: 0.16, dist: 96 };
+    Object.assign(this.cam, { yaw: start.yaw, pitch: start.pitch, dist: start.dist });
+    this.cam.target = start.target.slice();
+    this.flyTo(OVERVIEW, this.reduced ? 0.3 : 3.2);
+    const el = document.getElementById('loader');
+    setTimeout(() => { el.classList.add('gone'); }, 260);
+    document.body.classList.add('ready');
+  }
+
+  _buildRibbon() {
+    document.getElementById('ribbon').innerHTML = HEADLINE
+      .map(([v, l]) => `<div class="hl"><b>${v}</b><span>${l}</span></div>`).join('');
+  }
+
+  /* ------------------------------------------------------------ callouts */
+  _buildCallouts() {
+    const left = document.getElementById('rail-left');
+    const right = document.getElementById('rail-right');
+    this.svg = document.getElementById('leaders');
+    this.calloutEls = [];
+
+    FEATURES.forEach((f, i) => {
+      const el = document.createElement('button');
+      el.className = 'callout ' + f.side;
+      el.type = 'button';
+      el.setAttribute('aria-label', `Inspect ${f.title}`);
+      el.innerHTML = `
+        <span class="c-tag">${f.tag}</span>
+        <span class="c-body">
+          <span class="c-kicker">${f.kicker}</span>
+          <span class="c-title">${f.title}</span>
+          <span class="c-teaser">${f.teaser}</span>
+        </span>
+        <span class="c-go" aria-hidden="true">INSPECT
+          <svg viewBox="0 0 16 10" width="16" height="10"><path d="M0 5h13M9 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+        </span>`;
+      el.addEventListener('click', () => this.select(f));
+      el.addEventListener('mouseenter', () => this.setHoverFeature(f));
+      el.addEventListener('mouseleave', () => this.setHoverFeature(null));
+      (f.side === 'left' ? left : right).appendChild(el);
+
+      const ns = 'http://www.w3.org/2000/svg';
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'leader');
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('class', 'leader-line');
+      const head = document.createElementNS(ns, 'path');
+      head.setAttribute('class', 'leader-head');
+      const ring = document.createElementNS(ns, 'circle');
+      ring.setAttribute('class', 'leader-ring');
+      ring.setAttribute('r', '10');
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('class', 'leader-dot');
+      dot.setAttribute('r', '2.6');
+      g.append(path, ring, dot, head);
+      this.svg.appendChild(g);
+
+      this.calloutEls.push({ f, el, g, path, head, ring, dot, i });
+    });
+  }
+
+  setHoverFeature(f) {
+    this.hoverFeature = f ? f.id : null;
+    this._refreshHighlight();
+  }
+
+  /** Highlight is driven by both the rail hover and the 3D hover. */
+  _refreshHighlight() {
+    const id = this.hoverFeature || this.pickFeature;
+    const strength = this.hoverFeature ? 1 : 0.75;
+    for (let i = 0; i < 32; i++) this.pState[i].hlG = 0;
+    if (id) {
+      for (const p in PART_FEATURE) {
+        if (PART_FEATURE[p] === id) this.pState[p].hlG = strength;
+      }
+    }
+    for (const c of this.calloutEls) c.g.classList.toggle('hot', c.f.id === id);
+  }
+
+  /* --------------------------------------------------------------- input */
+  _bindInput() {
+    const c = this.canvas;
+    let dragging = false, panning = false, lx = 0, ly = 0, moved = 0;
+    const pointers = new Map();
+    let pinchDist = 0;
+
+    const down = (e) => {
+      c.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinchDist = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        dragging = false;
+        return;
+      }
+      dragging = true;
+      panning = e.button === 2 || e.shiftKey;
+      lx = e.clientX; ly = e.clientY; moved = 0;
+      this.tween = null;
+      this.idle = 0;
+      c.classList.add('grabbing');
+    };
+    const move = (e) => {
+      if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (pinchDist) this.zoomBy(Math.pow(pinchDist / d, 1.6));
+        pinchDist = d;
+        return;
+      }
+      if (!dragging) { this.pendingPick = [e.clientX, e.clientY]; return; }
+      const dx = e.clientX - lx, dy = e.clientY - ly;
+      lx = e.clientX; ly = e.clientY;
+      moved += Math.abs(dx) + Math.abs(dy);
+      this.idle = 0;
+      if (panning) {
+        const k = this.goal.dist * 0.0012;
+        const right = [Math.cos(this.goal.yaw), 0, -Math.sin(this.goal.yaw)];
+        const upv = [0, 1, 0];
+        for (let i = 0; i < 3; i++) {
+          this.goal.target[i] += -right[i] * dx * k + upv[i] * dy * k;
+        }
+      } else {
+        this.goal.yaw -= dx * 0.0055;
+        this.goal.pitch = clamp(this.goal.pitch + dy * 0.0048, -0.35, 1.5);
+      }
+      this.autoRotate = false;
+    };
+    const up = (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchDist = 0;
+      if (dragging && moved < 6) this._clickAt(e.clientX, e.clientY);
+      dragging = false;
+      c.classList.remove('grabbing');
+    };
+    c.addEventListener('pointerdown', down);
+    c.addEventListener('pointermove', move);
+    c.addEventListener('pointerup', up);
+    c.addEventListener('pointercancel', up);
+    c.addEventListener('contextmenu', (e) => e.preventDefault());
+    c.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.zoomBy(Math.exp(clamp(e.deltaY, -120, 120) * 0.0013));
+      this.autoRotate = false;
+      this.idle = 0;
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k >= '1' && k <= '8') { this.select(FEATURES[+k - 1]); e.preventDefault(); return; }
+      if (ORBIT_KEYS.has(k)) this.tween = null;
+      switch (k) {
+        case 'escape': this.back(); break;
+        case 'arrowleft': this.goal.yaw += 0.09; this.autoRotate = false; e.preventDefault(); break;
+        case 'arrowright': this.goal.yaw -= 0.09; this.autoRotate = false; e.preventDefault(); break;
+        case 'arrowup': this.goal.pitch = clamp(this.goal.pitch + 0.06, -0.35, 1.5); e.preventDefault(); break;
+        case 'arrowdown': this.goal.pitch = clamp(this.goal.pitch - 0.06, -0.35, 1.5); e.preventDefault(); break;
+        case '+': case '=': this.zoomBy(0.86); break;
+        case '-': case '_': this.zoomBy(1.16); break;
+        case 'r': this.back(); this.goal.target = OVERVIEW.target.slice(); break;
+        case ' ': this.autoRotate = !this.autoRotate; e.preventDefault(); break;
+        case 'x': this.toggleExplode(); break;
+        case 'm': if (this.active) this.setStage(this.stage === 'macro' ? 'view' : 'macro'); break;
+        case 'h': this.toggleUI(); break;
+        case 'f': this.toggleFullscreen(); break;
+        default: return;
+      }
+      this.idle = 0;
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => this.back());
+    document.getElementById('btn-explode').addEventListener('click', () => this.toggleExplode());
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      this.back(); this.goal.target = OVERVIEW.target.slice();
+    });
+    document.getElementById('btn-stage').addEventListener('click', () => {
+      this.setStage(this.stage === 'macro' ? 'view' : 'macro');
+    });
+    document.getElementById('btn-ui').addEventListener('click', () => this.toggleUI());
+  }
+
+  _clickAt(x, y) {
+    const r = this.canvas.getBoundingClientRect();
+    const id = this.renderer.pick(x - r.left, y - r.top, this.parts);
+    const fid = PART_FEATURE[id];
+    if (fid) {
+      const f = FEATURES.find((v) => v.id === fid);
+      if (f) this.select(f);
+    }
+  }
+
+  zoomBy(k) {
+    const min = this.mode === 'overview' ? 8 : 0.45;
+    this.goal.dist = clamp(this.goal.dist * k, min, 160);
+    this.tween = null;
+  }
+
+  toggleUI() {
+    this.uiHidden = !this.uiHidden;
+    document.body.classList.toggle('ui-hidden', this.uiHidden);
+  }
+
+  toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.();
+  }
+
+  toggleExplode() {
+    this.exploded = !this.exploded;
+    document.getElementById('btn-explode').classList.toggle('on', this.exploded);
+    this._applyParts();
+  }
+
+  /* ------------------------------------------------------------- camera */
+  flyTo(view, dur = 1.5) {
+    const from = {
+      target: this.cam.target.slice(), yaw: this.cam.yaw,
+      pitch: this.cam.pitch, dist: this.cam.dist,
+    };
+    // Shortest angular path.
+    let dy = view.yaw - from.yaw;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    this.tween = {
+      from, to: { ...view, target: view.target.slice(), yaw: from.yaw + dy },
+      t: 0, dur: this.reduced ? Math.min(dur, 0.4) : dur,
+    };
+    Object.assign(this.goal, { yaw: from.yaw + dy, pitch: view.pitch, dist: view.dist });
+    this.goal.target = view.target.slice();
+  }
+
+  /* ------------------------------------------------------ state changes */
+  select(f) {
+    if (!f) return;
+    this.active = f;
+    this.mode = 'feature';
+    this.stage = 'view';
+    this.setHoverFeature(null);
+    this.flyTo(f.view, 1.6);
+    this._applyParts();
+    this._fillPanel(f);
+    document.body.classList.add('inspecting');
+    document.body.classList.remove('macro');
+    for (const c of this.calloutEls) c.el.classList.toggle('active', c.f === f);
+  }
+
+  setStage(stage) {
+    if (!this.active) return;
+    this.stage = stage;
+    this.flyTo(stage === 'macro' ? this.active.macro : this.active.view, 1.3);
+    document.body.classList.toggle('macro', stage === 'macro');
+    const b = document.getElementById('btn-stage');
+    b.textContent = stage === 'macro' ? '↤  PULL BACK' : 'DIVE TO CIRCUIT LEVEL  ↦';
+    document.getElementById('macro-hint').textContent = this.active.macroHint;
+  }
+
+  back() {
+    if (this.mode === 'overview') return;
+    if (this.stage === 'macro') { this.setStage('view'); return; }
+    this.mode = 'overview';
+    this.active = null;
+    this.stage = 'view';
+    document.body.classList.remove('inspecting', 'macro');
+    for (const c of this.calloutEls) c.el.classList.remove('active');
+    this.flyTo(OVERVIEW, 1.5);
+    this._applyParts();
+  }
+
+  _fillPanel(f) {
+    document.getElementById('p-tag').textContent = f.tag;
+    document.getElementById('p-kicker').textContent = f.kicker;
+    document.getElementById('p-title').textContent = f.title;
+    document.getElementById('p-body').innerHTML = f.body;
+    document.getElementById('p-specs').innerHTML = f.specs.map(([k, v]) => `
+      <div class="spec"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    document.getElementById('btn-stage').textContent = 'DIVE TO CIRCUIT LEVEL  ↦';
+    document.getElementById('macro-hint').textContent = f.macroHint;
+    const idx = FEATURES.indexOf(f);
+    document.getElementById('p-index').textContent =
+      `${String(idx + 1).padStart(2, '0')} / ${String(FEATURES.length).padStart(2, '0')}`;
+  }
+
+  /** Recompute every part's target alpha and displacement. */
+  _applyParts() {
+    for (let i = 0; i < 32; i++) {
+      this.pState[i].aG = 1;
+      this.pState[i].oG = [0, 0, 0];
+    }
+    if (this.exploded) {
+      for (const p in EXPLODE) this.pState[p].oG = EXPLODE[p].slice();
+    }
+    const f = this.active;
+    if (f) {
+      for (const p of f.hide) this.pState[p].aG = 0;
+      for (const p in f.lift) {
+        const o = f.lift[p];
+        this.pState[p].oG = [o[0], o[1], o[2]];
+      }
+    }
+  }
+
+  /* --------------------------------------------------------------- frame */
+  _resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+    // Keep the pixel budget sane on huge displays.
+    const budget = 2600 * 1500;
+    const scale = Math.min(1, Math.sqrt(budget / (w * dpr * h * dpr)));
+    this.renderer.resize(w, h, dpr * scale);
+    this.canvas.style.width = w + 'px';
+    this.canvas.style.height = h + 'px';
+    this.svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    this.vw = w; this.vh = h;
+    this._cacheRects();
+    document.getElementById('stat-res').textContent =
+      `${this.renderer.width}×${this.renderer.height}`;
+  }
+
+  _cacheRects() {
+    if (!this.calloutEls) return;
+    for (const c of this.calloutEls) c.rect = c.el.getBoundingClientRect();
+    this.rectAge = 0;   // replay the dense-refresh window after a reflow
+  }
+
+  _updateCamera(dt) {
+    const c = this.cam, g = this.goal;
+    if (this.tween) {
+      const tw = this.tween;
+      tw.t = Math.min(1, tw.t + dt / tw.dur);
+      const e = easeInOutCubic(tw.t);
+      // A touch of arc so the flight feels flown, not lerped.
+      const arc = Math.sin(tw.t * Math.PI) * (this.reduced ? 0 : 0.14);
+      c.yaw = lerp(tw.from.yaw, tw.to.yaw, e);
+      c.pitch = lerp(tw.from.pitch, tw.to.pitch, e);
+      c.dist = lerp(tw.from.dist, tw.to.dist, e) * (1 + arc);
+      for (let i = 0; i < 3; i++) c.target[i] = lerp(tw.from.target[i], tw.to.target[i], e);
+      if (tw.t >= 1) this.tween = null;
+    } else {
+      const k = 9;
+      c.yaw = damp(c.yaw, g.yaw, k, dt);
+      c.pitch = damp(c.pitch, g.pitch, k, dt);
+      c.dist = damp(c.dist, g.dist, k, dt);
+      for (let i = 0; i < 3; i++) c.target[i] = damp(c.target[i], g.target[i], k, dt);
+    }
+    if (this.autoRotate && this.mode === 'overview' && !this.tween && !this.reduced) {
+      this.goal.yaw += dt * 0.055;
+    }
+    const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
+    c.pos = [
+      c.target[0] + c.dist * cp * Math.sin(c.yaw),
+      c.target[1] + c.dist * sp,
+      c.target[2] + c.dist * cp * Math.cos(c.yaw),
+    ];
+  }
+
+  _updateParts(dt) {
+    for (let i = 0; i < 32; i++) {
+      const p = this.pState[i];
+      p.a = damp(p.a, p.aG, 6.5, dt);
+      p.hl = damp(p.hl, p.hlG, 9, dt);
+      for (let k = 0; k < 3; k++) p.o[k] = damp(p.o[k], p.oG[k], 5.5, dt);
+      this.parts[i * 4] = p.o[0];
+      this.parts[i * 4 + 1] = p.o[1];
+      this.parts[i * 4 + 2] = p.o[2];
+      this.parts[i * 4 + 3] = p.a;
+      this.partFx[i * 4] = p.hl;
+    }
+  }
+
+  _updateLeaders() {
+    const show = this.mode === 'overview' && !this.uiHidden && this.vw > 900;
+    this.svg.style.opacity = show ? 1 : 0;
+    if (!show) return;
+    // The entry animation moves the boxes; keep the rects honest while it plays,
+    // then fall back to an occasional refresh.
+    this.rectAge = (this.rectAge || 0) + 1;
+    if (this.rectAge < 180 || this.rectAge % 30 === 0) {
+      for (const c of this.calloutEls) c.rect = c.el.getBoundingClientRect();
+    }
+    const vp = this.renderer.viewProj;
+    const out = [0, 0, 0, 0];
+    for (const c of this.calloutEls) {
+      M4.project(out, vp, c.f.anchor);
+      if (out[3] <= 0.01) { c.g.style.opacity = 0; continue; }
+      const ax = (out[0] / out[3] * 0.5 + 0.5) * this.vw;
+      const ay = (1 - (out[1] / out[3] * 0.5 + 0.5)) * this.vh;
+      const r = c.rect || c.el.getBoundingClientRect();
+      const leftSide = c.f.side === 'left';
+      const bx = leftSide ? r.right : r.left;
+      const by = r.top + r.height / 2;
+      const stub = leftSide ? 18 : -18;
+      const mx = bx + stub;
+      c.path.setAttribute('d', `M ${bx.toFixed(1)} ${by.toFixed(1)} L ${mx.toFixed(1)} ${by.toFixed(1)} L ${ax.toFixed(1)} ${ay.toFixed(1)}`);
+      const ang = Math.atan2(ay - by, ax - mx);
+      const hx = ax - Math.cos(ang) * 9, hy = ay - Math.sin(ang) * 9;
+      const s = 5.2;
+      const p1 = [hx + Math.cos(ang + 2.5) * s, hy + Math.sin(ang + 2.5) * s];
+      const p2 = [hx + Math.cos(ang - 2.5) * s, hy + Math.sin(ang - 2.5) * s];
+      c.head.setAttribute('d', `M ${hx.toFixed(1)} ${hy.toFixed(1)} L ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} L ${p2[0].toFixed(1)} ${p2[1].toFixed(1)} Z`);
+      c.ring.setAttribute('cx', ax.toFixed(1)); c.ring.setAttribute('cy', ay.toFixed(1));
+      c.dot.setAttribute('cx', ax.toFixed(1)); c.dot.setAttribute('cy', ay.toFixed(1));
+      c.g.style.opacity = 1;
+    }
+  }
+
+  _doPick() {
+    if (!this.pendingPick) return;
+    const [x, y] = this.pendingPick;
+    this.pendingPick = null;
+    const tip = document.getElementById('tooltip');
+    tip.style.transform = `translate(${Math.min(x + 16, this.vw - 240)}px, ${y + 16}px)`;
+    const r = this.canvas.getBoundingClientRect();
+    const id = this.renderer.pick(x - r.left, y - r.top, this.parts);
+    if (id === this.hoverPart) return;
+    this.hoverPart = id;
+    const name = PART_NAMES[id];
+    if (id >= 0 && name) {
+      tip.textContent = name + (PART_FEATURE[id] ? '  ·  click to inspect' : '');
+      tip.classList.add('on');
+      this.canvas.style.cursor = PART_FEATURE[id] ? 'pointer' : 'grab';
+    } else {
+      tip.classList.remove('on');
+      this.canvas.style.cursor = 'grab';
+    }
+    this.pickFeature = PART_FEATURE[id] || null;
+    this._refreshHighlight();
+  }
+
+  _loop(now) {
+    requestAnimationFrame((t) => this._loop(t));
+    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.last = now;
+    this.time += dt;
+    this.idle += dt;
+    if (this.idle > 12 && this.mode === 'overview' && !this.tween) this.autoRotate = true;
+    this.reveal = Math.min(1.2, this.reveal + dt * 0.55);
+
+    this._updateCamera(dt);
+    this._updateParts(dt);
+
+    const aspect = this.renderer.width / this.renderer.height;
+    this.renderer.setCamera(this.cam, aspect);
+    this._doPick();
+
+    const d = this.cam.dist;
+    const dof = clamp(smoothstep(16, 2.2, d) * 0.80 + 0.04, 0.04, 0.84);
+    const macroness = smoothstep(14, 3, d);
+
+    this.renderer.render({
+      time: this.time,
+      camPos: this.cam.pos,
+      parts: this.parts,
+      partFx: this.partFx,
+      xray: this.mode === 'overview' ? 0.4 : 1.0,
+      focusPoint: this.cam.target,
+      focusAmt: macroness,
+      focusDist: d,
+      dof,
+      aoRadius: clamp(d * 0.030, 0.02, 0.9),
+      ao: 0.85,
+      bloom: lerp(0.75, 0.85, macroness),
+      exposure: lerp(0.95, 1.05, macroness),
+      vignette: lerp(0.42, 0.60, macroness),
+      reveal: this.reveal,
+    });
+
+    this._updateLeaders();
+
+    // HUD
+    this.frames++; this.fpsT += dt;
+    if (this.fpsT > 0.5) {
+      this.fps = Math.round(this.frames / this.fpsT);
+      this.frames = 0; this.fpsT = 0;
+      document.getElementById('stat-fps').textContent = this.fps;
+    }
+    const mag = Math.max(1, OVERVIEW.dist / Math.max(this.cam.dist, 0.001));
+    document.getElementById('stat-mag').textContent = '×' + (mag * 4.2).toFixed(mag > 4 ? 0 : 1);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const fail = (msg) => {
+    document.getElementById('loader').classList.add('gone');
+    const el = document.getElementById('fallback');
+    el.style.display = 'flex';
+    document.getElementById('fallback-msg').textContent = msg;
+  };
+  try {
+    if (!document.createElement('canvas').getContext('webgl2')) {
+      return fail('This viewer needs WebGL 2. Try a current Chrome, Edge, Firefox or Safari 15+, and make sure hardware acceleration is on.');
+    }
+    window.app = new App();
+  } catch (err) {
+    console.error(err);
+    fail(String(err && err.message ? err.message : err));
+  }
+});
+
+})();
+</script>
+</body>
+</html>
