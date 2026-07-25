@@ -177,6 +177,29 @@ function tube(path, r, seg = 10) {
   return { P, N, U, I };
 }
 
+/** Catmull-Rom through a list of waypoints — used to route cabling. */
+function smoothPath(pts, samples = 44) {
+  const P = [pts[0], ...pts, pts[pts.length - 1]];
+  const segs = P.length - 3;
+  const per = Math.max(2, Math.round(samples / segs));
+  const out = [];
+  for (let s = 0; s < segs; s++) {
+    const p0 = P[s], p1 = P[s + 1], p2 = P[s + 2], p3 = P[s + 3];
+    for (let i = 0; i < per; i++) {
+      const t = i / per, t2 = t * t, t3 = t2 * t;
+      const p = [0, 0, 0];
+      for (let k = 0; k < 3; k++) {
+        p[k] = 0.5 * (2 * p1[k] + (-p0[k] + p2[k]) * t
+          + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2
+          + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3);
+      }
+      out.push(p);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
 /** Flat XZ plane, subdivided. */
 function plane(w, d, sx = 1, sz = 1) {
   const P = [], N = [], U = [], I = [];

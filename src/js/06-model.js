@@ -145,23 +145,23 @@ function buildScene() {
   /* ------------------------------------- co-packaged optics + pigtails */
   for (let i = 0; i < GEO.photX.length; i++) {
     const px = GEO.photX[i];
-    B.add(box(2.2, 0.32, 1.5), xf([px, 0.27, GEO.photZ]), MAT.PHOTONIC, PART.PHOTONIC, 1, i);
-    B.add(box(2.4, 0.06, 1.7), xf([px, 0.14, GEO.photZ]), MAT.SUBSTRATE, PART.PHOTONIC);
+    B.add(box(2.2, 0.32, 1.2), xf([px, 0.27, GEO.photZ]), MAT.PHOTONIC, PART.PHOTONIC, 1, i);
+    B.add(box(2.4, 0.06, 1.4), xf([px, 0.14, GEO.photZ]), MAT.SUBSTRATE, PART.PHOTONIC);
     // heat spreader ring
-    B.add(box(2.6, 0.10, 0.12), xf([px, 0.20, GEO.photZ - 0.86]), MAT.COPPER, PART.PHOTONIC);
-    // fibre pigtail arcing away to the bracket
+    B.add(box(2.6, 0.10, 0.12), xf([px, 0.20, GEO.photZ - 0.72]), MAT.COPPER, PART.PHOTONIC);
+    /* Pigtails drop into a routing lane along the board's front edge and run
+       to the bracket there — never over another engine or through a stack. */
     for (let f = 0; f < 3; f++) {
-      const z0 = GEO.photZ - 0.4 + f * 0.4;
-      const zEnd = -4.2 + i * 2.8 + (f - 1) * 0.3;
-      const pathPts = [];
-      for (let s = 0; s <= 16; s++) {
-        const t = s / 16;
-        const x = lerp(px - 1.2, -14.9, t);
-        const y = 0.35 + Math.sin(t * Math.PI) * (0.55 + f * 0.12);
-        const z = lerp(z0, zEnd, smoothstep(0, 1, t));
-        pathPts.push([x, y, z]);
-      }
-      B.add(tube(pathPts, 0.055, 7), null, MAT.FIBER, PART.FIBER, 1, f * 0.3 + i * 0.11);
+      const lane = -5.85 + f * 0.09;
+      const portZ = -4.2 + i * 2.8 + (f - 1) * 0.26;
+      const pathPts = smoothPath([
+        [px - 1.05, 0.30, GEO.photZ - 0.3 + f * 0.3],
+        [px - 1.85, 0.31, lane],
+        [-12.4, 0.32, lane],
+        [-14.15, 0.80, portZ],
+        [-14.95, 1.28, portZ],
+      ], 52);
+      B.add(tube(pathPts, 0.05, 7), null, MAT.FIBER, PART.FIBER, 1, f * 0.3 + i * 0.11);
     }
   }
 

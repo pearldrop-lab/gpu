@@ -8,7 +8,17 @@ subsystems are called out with leader arrows; click one and the camera flies in,
 dissolves away, and you can keep pushing until you are looking at individual logic cells,
 micro-bumps and 0.18 mm coolant channels.
 
-**Live page:** https://pearldrop-lab.github.io/gpu/
+## Viewing it
+
+**Instant preview, no setup** — serves this repo's `index.html` as a real web page:
+
+> https://raw.githack.com/pearldrop-lab/gpu/claude/vera-rubin-gpu-viewer-ebdnk9/index.html
+
+**Permanent URL** — https://pearldrop-lab.github.io/gpu/ — needs GitHub Pages switched on
+once: *Settings → Pages → Build and deployment → Source: **GitHub Actions***. The workflow in
+`.github/workflows/pages.yml` then builds and deploys on every push. (It tries to enable Pages
+itself, but the Actions token is not permitted to create the Pages site, so the first flip is
+manual.)
 
 ---
 

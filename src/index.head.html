@@ -154,8 +154,9 @@ body.inspecting #panel{transform:translate(0,-50%);opacity:1}
   text-transform:uppercase}
 .spec dd{margin:5px 0 0;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--lime)}
 .p-actions{padding:16px 24px 22px;display:flex;flex-direction:column;gap:10px}
-#macro-hint{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--muted);
-  line-height:1.6;text-transform:uppercase}
+/* Deliberately not uppercased: text-transform turns "µm" into "ΜM". */
+#macro-hint{font-family:var(--mono);font-size:9.5px;letter-spacing:.10em;color:var(--muted);
+  line-height:1.65}
 
 .btn{
   -webkit-appearance:none;appearance:none;font:inherit;cursor:pointer;
@@ -262,10 +263,14 @@ body.macro #macro-frame{opacity:1}
     border-top:2px solid var(--lime)}
   body.inspecting #panel{transform:translateY(0)}
   #ribbon,#hints{display:none}
-  #brand{top:16px;left:18px}
-  #stats{top:16px;right:18px}
-  .chip:nth-child(n+3){display:none}
-  #dock{bottom:14px}
+  #brand{top:16px;left:18px;gap:0}
+  .brand-div,.brand-txt{display:none}
+  .wordmark{font-size:22px}
+  #stats{top:18px;right:18px}
+  .chip:nth-child(n+2){display:none}
+  #dock{bottom:14px;gap:6px}
+  .btn{padding:10px 11px;font-size:9px;letter-spacing:.12em;white-space:nowrap}
+  .callout{padding:11px 12px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;

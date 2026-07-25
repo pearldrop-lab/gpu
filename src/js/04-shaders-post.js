@@ -148,7 +148,7 @@ void main(){
   vec2 p = uv - 0.5;
 
   // Chromatic aberration grows toward the frame edge
-  float ca = (0.0009 + 0.0022*u_dofAmt) * dot(p,p) * 4.0;
+  float ca = (0.0005 + 0.0009*u_dofAmt) * dot(p,p) * 4.0;
   vec3 col;
   col.r = texture(u_scene, uv + p*ca).r;
   col.g = texture(u_scene, uv).g;

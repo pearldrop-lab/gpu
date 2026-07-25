@@ -361,7 +361,7 @@ void material(int id, vec3 op, vec2 uv, float det, float seed, vec3 n,
     float prof = smoothstep(0.0,0.22,c)*smoothstep(1.0,0.78,c);
     float f = lodFade(1.0/chans, uv);
     prof = mix(0.5, prof, f);
-    albedo = mix(vec3(0.55,0.26,0.14), vec3(0.95,0.55,0.33), prof);
+    albedo = mix(vec3(0.42,0.20,0.11), vec3(0.74,0.43,0.26), prof);
     metal = 1.0; rough = mix(0.5, 0.2, prof);
     // vapour slugs sprinting along the channels
     float lane = floor(uv.y*chans);
@@ -570,12 +570,12 @@ void main(){
   vec3 col = shade(N, V, Lk, vec3(1.00,0.98,0.94)*3.6, albedo, rough, metal, shadow, 1.0);
   // Lime rim, almost horizontal so it catches edges rather than panel tops
   vec3 Lr = normalize(vec3(-0.88, 0.09, -0.47));
-  col += shade(N, V, Lr, LIME*1.6, albedo, rough, metal, 1.0, 0.45);
+  col += shade(N, V, Lr, LIME*1.15, albedo, rough, metal, 1.0, 0.45);
   // Fresnel edge light — separates the silhouette from the void.
   col += LIME * pow(1.0 - nv, 5.0) * 0.30;
   // Cool fill from the front-left, diffuse-dominant
   vec3 Lf = normalize(vec3(-0.52, 0.14, 0.84));
-  col += shade(N, V, Lf, vec3(0.34,0.50,0.60)*1.1, albedo, rough, metal, 1.0, 0.22);
+  col += shade(N, V, Lf, vec3(0.42,0.52,0.60)*1.45, albedo, rough, metal, 1.0, 0.22);
 
   // Image-based ambient
   vec3 f0 = mix(vec3(0.04), albedo, metal);

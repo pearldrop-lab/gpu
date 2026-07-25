@@ -157,8 +157,9 @@ body.inspecting #panel{transform:translate(0,-50%);opacity:1}
   text-transform:uppercase}
 .spec dd{margin:5px 0 0;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--lime)}
 .p-actions{padding:16px 24px 22px;display:flex;flex-direction:column;gap:10px}
-#macro-hint{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--muted);
-  line-height:1.6;text-transform:uppercase}
+/* Deliberately not uppercased: text-transform turns "µm" into "ΜM". */
+#macro-hint{font-family:var(--mono);font-size:9.5px;letter-spacing:.10em;color:var(--muted);
+  line-height:1.65}
 
 .btn{
   -webkit-appearance:none;appearance:none;font:inherit;cursor:pointer;
@@ -265,10 +266,14 @@ body.macro #macro-frame{opacity:1}
     border-top:2px solid var(--lime)}
   body.inspecting #panel{transform:translateY(0)}
   #ribbon,#hints{display:none}
-  #brand{top:16px;left:18px}
-  #stats{top:16px;right:18px}
-  .chip:nth-child(n+3){display:none}
-  #dock{bottom:14px}
+  #brand{top:16px;left:18px;gap:0}
+  .brand-div,.brand-txt{display:none}
+  .wordmark{font-size:22px}
+  #stats{top:18px;right:18px}
+  .chip:nth-child(n+2){display:none}
+  #dock{bottom:14px;gap:6px}
+  .btn{padding:10px 11px;font-size:9px;letter-spacing:.12em;white-space:nowrap}
+  .callout{padding:11px 12px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;
@@ -683,6 +688,29 @@ function tube(path, r, seg = 10) {
     }
   }
   return { P, N, U, I };
+}
+
+/** Catmull-Rom through a list of waypoints — used to route cabling. */
+function smoothPath(pts, samples = 44) {
+  const P = [pts[0], ...pts, pts[pts.length - 1]];
+  const segs = P.length - 3;
+  const per = Math.max(2, Math.round(samples / segs));
+  const out = [];
+  for (let s = 0; s < segs; s++) {
+    const p0 = P[s], p1 = P[s + 1], p2 = P[s + 2], p3 = P[s + 3];
+    for (let i = 0; i < per; i++) {
+      const t = i / per, t2 = t * t, t3 = t2 * t;
+      const p = [0, 0, 0];
+      for (let k = 0; k < 3; k++) {
+        p[k] = 0.5 * (2 * p1[k] + (-p0[k] + p2[k]) * t
+          + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2
+          + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3);
+      }
+      out.push(p);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
 }
 
 /** Flat XZ plane, subdivided. */
@@ -1165,7 +1193,7 @@ void material(int id, vec3 op, vec2 uv, float det, float seed, vec3 n,
     float prof = smoothstep(0.0,0.22,c)*smoothstep(1.0,0.78,c);
     float f = lodFade(1.0/chans, uv);
     prof = mix(0.5, prof, f);
-    albedo = mix(vec3(0.55,0.26,0.14), vec3(0.95,0.55,0.33), prof);
+    albedo = mix(vec3(0.42,0.20,0.11), vec3(0.74,0.43,0.26), prof);
     metal = 1.0; rough = mix(0.5, 0.2, prof);
     // vapour slugs sprinting along the channels
     float lane = floor(uv.y*chans);
@@ -1374,12 +1402,12 @@ void main(){
   vec3 col = shade(N, V, Lk, vec3(1.00,0.98,0.94)*3.6, albedo, rough, metal, shadow, 1.0);
   // Lime rim, almost horizontal so it catches edges rather than panel tops
   vec3 Lr = normalize(vec3(-0.88, 0.09, -0.47));
-  col += shade(N, V, Lr, LIME*1.6, albedo, rough, metal, 1.0, 0.45);
+  col += shade(N, V, Lr, LIME*1.15, albedo, rough, metal, 1.0, 0.45);
   // Fresnel edge light — separates the silhouette from the void.
   col += LIME * pow(1.0 - nv, 5.0) * 0.30;
   // Cool fill from the front-left, diffuse-dominant
   vec3 Lf = normalize(vec3(-0.52, 0.14, 0.84));
-  col += shade(N, V, Lf, vec3(0.34,0.50,0.60)*1.1, albedo, rough, metal, 1.0, 0.22);
+  col += shade(N, V, Lf, vec3(0.42,0.52,0.60)*1.45, albedo, rough, metal, 1.0, 0.22);
 
   // Image-based ambient
   vec3 f0 = mix(vec3(0.04), albedo, metal);
@@ -1680,7 +1708,7 @@ void main(){
   vec2 p = uv - 0.5;
 
   // Chromatic aberration grows toward the frame edge
-  float ca = (0.0009 + 0.0022*u_dofAmt) * dot(p,p) * 4.0;
+  float ca = (0.0005 + 0.0009*u_dofAmt) * dot(p,p) * 4.0;
   vec3 col;
   col.r = texture(u_scene, uv + p*ca).r;
   col.g = texture(u_scene, uv).g;
@@ -2091,23 +2119,23 @@ function buildScene() {
   /* ------------------------------------- co-packaged optics + pigtails */
   for (let i = 0; i < GEO.photX.length; i++) {
     const px = GEO.photX[i];
-    B.add(box(2.2, 0.32, 1.5), xf([px, 0.27, GEO.photZ]), MAT.PHOTONIC, PART.PHOTONIC, 1, i);
-    B.add(box(2.4, 0.06, 1.7), xf([px, 0.14, GEO.photZ]), MAT.SUBSTRATE, PART.PHOTONIC);
+    B.add(box(2.2, 0.32, 1.2), xf([px, 0.27, GEO.photZ]), MAT.PHOTONIC, PART.PHOTONIC, 1, i);
+    B.add(box(2.4, 0.06, 1.4), xf([px, 0.14, GEO.photZ]), MAT.SUBSTRATE, PART.PHOTONIC);
     // heat spreader ring
-    B.add(box(2.6, 0.10, 0.12), xf([px, 0.20, GEO.photZ - 0.86]), MAT.COPPER, PART.PHOTONIC);
-    // fibre pigtail arcing away to the bracket
+    B.add(box(2.6, 0.10, 0.12), xf([px, 0.20, GEO.photZ - 0.72]), MAT.COPPER, PART.PHOTONIC);
+    /* Pigtails drop into a routing lane along the board's front edge and run
+       to the bracket there — never over another engine or through a stack. */
     for (let f = 0; f < 3; f++) {
-      const z0 = GEO.photZ - 0.4 + f * 0.4;
-      const zEnd = -4.2 + i * 2.8 + (f - 1) * 0.3;
-      const pathPts = [];
-      for (let s = 0; s <= 16; s++) {
-        const t = s / 16;
-        const x = lerp(px - 1.2, -14.9, t);
-        const y = 0.35 + Math.sin(t * Math.PI) * (0.55 + f * 0.12);
-        const z = lerp(z0, zEnd, smoothstep(0, 1, t));
-        pathPts.push([x, y, z]);
-      }
-      B.add(tube(pathPts, 0.055, 7), null, MAT.FIBER, PART.FIBER, 1, f * 0.3 + i * 0.11);
+      const lane = -5.85 + f * 0.09;
+      const portZ = -4.2 + i * 2.8 + (f - 1) * 0.26;
+      const pathPts = smoothPath([
+        [px - 1.05, 0.30, GEO.photZ - 0.3 + f * 0.3],
+        [px - 1.85, 0.31, lane],
+        [-12.4, 0.32, lane],
+        [-14.15, 0.80, portZ],
+        [-14.95, 1.28, portZ],
+      ], 52);
+      B.add(tube(pathPts, 0.05, 7), null, MAT.FIBER, PART.FIBER, 1, f * 0.3 + i * 0.11);
     }
   }
 
@@ -2291,7 +2319,7 @@ const FEATURES = [
     teaser: '288 GB at 22.4 TB/s, ringed around the compute.',
     anchor: ANCHORS.hbm,
     view: { target: [GEO.hbmX[0], 1.1, GEO.hbmZ[0]], yaw: -0.95, pitch: 0.42, dist: 8.0 },
-    macro: { target: [GEO.hbmX[0] - 0.82, 1.05, GEO.hbmZ[0] + 0.3], yaw: -1.42, pitch: 0.10, dist: 1.5 },
+    macro: { target: [GEO.hbmX[0] - 0.72, 1.05, GEO.hbmZ[0] - 0.5], yaw: -1.02, pitch: 0.30, dist: 3.3 },
     hide: COOLER,
     lift: {},
     macroHint: 'Sixteen laminated DRAM dies · through-silicon vias at the seam',
@@ -2317,7 +2345,7 @@ const FEATURES = [
     teaser: 'Photons leave the package — copper never gets a chance.',
     anchor: ANCHORS.optics,
     view: { target: [GEO.photX[1], 0.6, GEO.photZ + 0.4], yaw: 0.15, pitch: 0.40, dist: 8.5 },
-    macro: { target: [GEO.photX[1] + 0.1, 0.45, GEO.photZ], yaw: 0.05, pitch: 0.42, dist: 1.5 },
+    macro: { target: [GEO.photX[1] + 0.1, 0.44, GEO.photZ], yaw: 0.08, pitch: 0.52, dist: 2.3 },
     hide: COOLER,
     lift: {},
     macroHint: 'Silicon waveguides, ring modulators and live traffic at 1310 nm',
@@ -2343,8 +2371,8 @@ const FEATURES = [
     title: 'Two-Phase Micro-Channel Evaporator',
     teaser: '1.9 kW pulled out through 0.18 mm channels.',
     anchor: ANCHORS.vapour,
-    view: { target: [-2.2, 1.9, 1.5], yaw: 0.42, pitch: 0.78, dist: 15.0 },
-    macro: { target: [-6.0, 1.66, 2.2], yaw: 0.20, pitch: 0.50, dist: 1.7 },
+    view: { target: [-3.0, 2.5, 0.6], yaw: 0.42, pitch: 0.66, dist: 16.5 },
+    macro: { target: [-6.0, 2.76, 1.6], yaw: 0.30, pitch: 0.33, dist: 4.4 },
     hide: COOLER_KEEP_CHANNELS,
     lift: { [PART.CHANNELS]: [0, 1.1, 0] },
     macroHint: 'Skived copper fins · 0.18 mm channels · vapour slugs in flight',
@@ -2619,8 +2647,9 @@ class Renderer {
 
   /* -------------------------------------------------------------- camera */
   setCamera(cam, aspect) {
-    const near = Math.max(0.004, cam.dist * 0.012);
-    const far = Math.max(400, cam.dist * 60);
+    const dist = cam.distEff || cam.dist;
+    const near = Math.max(0.004, dist * 0.012);
+    const far = Math.max(400, dist * 60);
     this.near = near; this.far = far;
     M4.perspective(this.proj, cam.fov, aspect, near, far);
     M4.lookAt(this.view, cam.pos, cam.target, [0, 1, 0]);
@@ -3091,6 +3120,11 @@ class App {
     this.exploded = !this.exploded;
     document.getElementById('btn-explode').classList.toggle('on', this.exploded);
     this._applyParts();
+    // The stack is ~20 cm tall when opened; pull back and lift to frame it.
+    const k = this.exploded ? 1 : -1;
+    this.goal.dist = clamp(this.goal.dist * (this.exploded ? 1.38 : 1 / 1.38), 8, 160);
+    this.goal.target[1] += k * 3.4;
+    this.tween = null;
   }
 
   /* ------------------------------------------------------------- camera */
@@ -3227,11 +3261,15 @@ class App {
     if (this.autoRotate && this.mode === 'overview' && !this.tween && !this.reduced) {
       this.goal.yaw += dt * 0.055;
     }
+    const aspect = (this.vw || 16) / (this.vh || 9);
+    const fit = aspect < 1.55 ? clamp(1.55 / aspect, 1, 2.4) : 1;
+    const d = c.dist * fit;
+    c.distEff = d;
     const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
     c.pos = [
-      c.target[0] + c.dist * cp * Math.sin(c.yaw),
-      c.target[1] + c.dist * sp,
-      c.target[2] + c.dist * cp * Math.cos(c.yaw),
+      c.target[0] + d * cp * Math.sin(c.yaw),
+      c.target[1] + d * sp,
+      c.target[2] + d * cp * Math.cos(c.yaw),
     ];
   }
 
@@ -3324,7 +3362,7 @@ class App {
     this.renderer.setCamera(this.cam, aspect);
     this._doPick();
 
-    const d = this.cam.dist;
+    const d = this.cam.distEff;
     const dof = clamp(smoothstep(16, 2.2, d) * 0.80 + 0.04, 0.04, 0.84);
     const macroness = smoothstep(14, 3, d);
 
@@ -3340,8 +3378,8 @@ class App {
       dof,
       aoRadius: clamp(d * 0.030, 0.02, 0.9),
       ao: 0.85,
-      bloom: lerp(0.75, 0.85, macroness),
-      exposure: lerp(0.95, 1.05, macroness),
+      bloom: lerp(0.75, 0.70, macroness),
+      exposure: lerp(0.95, 0.98, macroness),
       vignette: lerp(0.42, 0.60, macroness),
       reveal: this.reveal,
     });

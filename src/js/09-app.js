@@ -313,6 +313,11 @@ class App {
     this.exploded = !this.exploded;
     document.getElementById('btn-explode').classList.toggle('on', this.exploded);
     this._applyParts();
+    // The stack is ~20 cm tall when opened; pull back and lift to frame it.
+    const k = this.exploded ? 1 : -1;
+    this.goal.dist = clamp(this.goal.dist * (this.exploded ? 1.38 : 1 / 1.38), 8, 160);
+    this.goal.target[1] += k * 3.4;
+    this.tween = null;
   }
 
   /* ------------------------------------------------------------- camera */
@@ -449,11 +454,15 @@ class App {
     if (this.autoRotate && this.mode === 'overview' && !this.tween && !this.reduced) {
       this.goal.yaw += dt * 0.055;
     }
+    const aspect = (this.vw || 16) / (this.vh || 9);
+    const fit = aspect < 1.55 ? clamp(1.55 / aspect, 1, 2.4) : 1;
+    const d = c.dist * fit;
+    c.distEff = d;
     const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
     c.pos = [
-      c.target[0] + c.dist * cp * Math.sin(c.yaw),
-      c.target[1] + c.dist * sp,
-      c.target[2] + c.dist * cp * Math.cos(c.yaw),
+      c.target[0] + d * cp * Math.sin(c.yaw),
+      c.target[1] + d * sp,
+      c.target[2] + d * cp * Math.cos(c.yaw),
     ];
   }
 
@@ -546,7 +555,7 @@ class App {
     this.renderer.setCamera(this.cam, aspect);
     this._doPick();
 
-    const d = this.cam.dist;
+    const d = this.cam.distEff;
     const dof = clamp(smoothstep(16, 2.2, d) * 0.80 + 0.04, 0.04, 0.84);
     const macroness = smoothstep(14, 3, d);
 
@@ -562,8 +571,8 @@ class App {
       dof,
       aoRadius: clamp(d * 0.030, 0.02, 0.9),
       ao: 0.85,
-      bloom: lerp(0.75, 0.85, macroness),
-      exposure: lerp(0.95, 1.05, macroness),
+      bloom: lerp(0.75, 0.70, macroness),
+      exposure: lerp(0.95, 0.98, macroness),
       vignette: lerp(0.42, 0.60, macroness),
       reveal: this.reveal,
     });

@@ -161,8 +161,9 @@ class Renderer {
 
   /* -------------------------------------------------------------- camera */
   setCamera(cam, aspect) {
-    const near = Math.max(0.004, cam.dist * 0.012);
-    const far = Math.max(400, cam.dist * 60);
+    const dist = cam.distEff || cam.dist;
+    const near = Math.max(0.004, dist * 0.012);
+    const far = Math.max(400, dist * 60);
     this.near = near; this.far = far;
     M4.perspective(this.proj, cam.fov, aspect, near, far);
     M4.lookAt(this.view, cam.pos, cam.target, [0, 1, 0]);
