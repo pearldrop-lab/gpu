@@ -24,6 +24,12 @@ manual.)
 
 ## What you can do
 
+The demo opens on a dark, breathing page with a single button — *Start Civo tech demo*.
+Everything behind it is already compiled and rendering, so pressing it costs nothing: the
+camera flies in from 96 cm out, a lime wipe sweeps the frame, and the interface arrives once
+the card has landed.
+
+
 | Input | Action |
 | --- | --- |
 | Drag | Orbit |

@@ -63,10 +63,19 @@
   <div id="tooltip"></div>
 </div>
 
-<div id="loader">
-  <div class="l-mark">civo<span>.</span></div>
-  <div class="l-bar"><i></i></div>
-  <div class="l-txt">Compiling shaders · building geometry</div>
+<div id="gate">
+  <div class="g-grid" aria-hidden="true"></div>
+  <div class="g-ring" aria-hidden="true"></div>
+  <div class="g-ring" aria-hidden="true"></div>
+  <div class="g-ring" aria-hidden="true"></div>
+  <div class="g-inner">
+    <div class="g-mark">civo<span>.</span></div>
+    <button id="btn-start" class="g-btn" type="button" disabled>
+      <span id="start-label">Warming up the silicon…</span>
+    </button>
+    <p class="g-sub">Prepare to be amazed<span class="g-dots">…</span></p>
+    <p class="g-meta">Real-time WebGL2 · no video, no pre-rendered frames</p>
+  </div>
 </div>
 
 <div id="fallback">

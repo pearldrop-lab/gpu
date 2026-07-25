@@ -48,6 +48,8 @@ class App {
     this.goal = { ...OVERVIEW, target: OVERVIEW.target.slice(), fov: 0.60 };
     this.tween = null;
     this.mode = 'overview';
+    this.started = false;
+    this.landed = false;
     this.active = null;          // active feature object
     this.stage = 'view';         // 'view' | 'macro'
     this.exploded = false;
@@ -85,6 +87,9 @@ class App {
 
   /** Finish any camera flight and transition instantly (headless harness). */
   snap() {
+    if (!this.started) this.start();
+    clearTimeout(this._landTimer);
+    this._land();
     this.reveal = 1.2;
     if (this.tween) { this.tween.t = 1; this._updateCamera(0.0001); }
     Object.assign(this.cam, {
@@ -99,14 +104,43 @@ class App {
   }
 
   /* --------------------------------------------------------------- intro */
+  /** Park the camera at its opening pose. The scene renders behind the gate
+      from the first frame, so pressing Start costs nothing. */
   _intro() {
     const start = { target: [-1, 2.5, 0], yaw: -1.35, pitch: 0.16, dist: 96 };
     Object.assign(this.cam, { yaw: start.yaw, pitch: start.pitch, dist: start.dist });
     this.cam.target = start.target.slice();
-    this.flyTo(OVERVIEW, this.reduced ? 0.3 : 3.2);
-    const el = document.getElementById('loader');
-    setTimeout(() => { el.classList.add('gone'); }, 260);
-    document.body.classList.add('ready');
+    Object.assign(this.goal, { yaw: start.yaw, pitch: start.pitch, dist: start.dist });
+    this.goal.target = start.target.slice();
+  }
+
+  /** Lift the curtain. */
+  start() {
+    if (this.started) return;
+    this.started = true;
+    const gate = document.getElementById('gate');
+    gate.classList.add('gone');
+    setTimeout(() => { gate.style.display = 'none'; }, 1300);
+    document.body.classList.add('started');
+    this.flyTo(OVERVIEW, this.reduced ? 0.3 : 3.4);
+    this.idle = 0;
+    // Let the card arrive before the chrome does.
+    this._landTimer = setTimeout(() => this._land(), this.reduced ? 200 : 2300);
+  }
+
+  /** The opening flight is far enough along to bring the interface in. */
+  _land() {
+    if (this.landed) return;
+    this.landed = true;
+    document.body.classList.add('landed');
+  }
+
+  /** Called once the renderer is up: arm the Start button. */
+  arm() {
+    const btn = document.getElementById('btn-start');
+    document.getElementById('start-label').textContent = 'Start Civo tech demo';
+    btn.disabled = false;
+    btn.addEventListener('click', () => this.start());
   }
 
   _buildRibbon() {
@@ -251,6 +285,10 @@ class App {
     window.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
+      if (!this.started) {
+        if (k === 'enter' || k === ' ') { this.start(); e.preventDefault(); }
+        return;
+      }
       if (k >= '1' && k <= '8') { this.select(FEATURES[+k - 1]); e.preventDefault(); return; }
       if (ORBIT_KEYS.has(k)) this.tween = null;
       switch (k) {
@@ -451,7 +489,7 @@ class App {
       c.dist = damp(c.dist, g.dist, k, dt);
       for (let i = 0; i < 3; i++) c.target[i] = damp(c.target[i], g.target[i], k, dt);
     }
-    if (this.autoRotate && this.mode === 'overview' && !this.tween && !this.reduced) {
+    if (this.started && this.autoRotate && this.mode === 'overview' && !this.tween && !this.reduced) {
       this.goal.yaw += dt * 0.055;
     }
     const aspect = (this.vw || 16) / (this.vh || 9);
@@ -481,7 +519,7 @@ class App {
   }
 
   _updateLeaders() {
-    const show = this.mode === 'overview' && !this.uiHidden && this.vw > 900;
+    const show = this.landed && this.mode === 'overview' && !this.uiHidden && this.vw > 900;
     this.svg.style.opacity = show ? 1 : 0;
     if (!show) return;
     // The entry animation moves the boxes; keep the rects honest while it plays,
@@ -544,9 +582,11 @@ class App {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.time += dt;
-    this.idle += dt;
-    if (this.idle > 12 && this.mode === 'overview' && !this.tween) this.autoRotate = true;
-    this.reveal = Math.min(1.2, this.reveal + dt * 0.55);
+    if (this.started) {
+      this.idle += dt;
+      if (this.idle > 12 && this.mode === 'overview' && !this.tween) this.autoRotate = true;
+      this.reveal = Math.min(1.2, this.reveal + dt * 0.6);
+    }
 
     this._updateCamera(dt);
     this._updateParts(dt);
@@ -593,7 +633,8 @@ class App {
 
 window.addEventListener('DOMContentLoaded', () => {
   const fail = (msg) => {
-    document.getElementById('loader').classList.add('gone');
+    const gate = document.getElementById('gate');
+    if (gate) gate.style.display = 'none';
     const el = document.getElementById('fallback');
     el.style.display = 'flex';
     document.getElementById('fallback-msg').textContent = msg;
@@ -603,6 +644,8 @@ window.addEventListener('DOMContentLoaded', () => {
       return fail('This viewer needs WebGL 2. Try a current Chrome, Edge, Firefox or Safari 15+, and make sure hardware acceleration is on.');
     }
     window.app = new App();
+    // One frame of real rendering before we promise anything.
+    requestAnimationFrame(() => requestAnimationFrame(() => window.app.arm()));
   } catch (err) {
     console.error(err);
     fail(String(err && err.message ? err.message : err));
