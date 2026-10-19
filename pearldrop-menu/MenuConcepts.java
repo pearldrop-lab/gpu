@@ -1318,6 +1318,188 @@ public class MenuConcepts {
         return c;
     }
 
+    // =====================================================================
+    // PORTFOLIO, in the two card styles (three real groups, so three cards)
+    // =====================================================================
+    record PCard(String name, String art, String tagline, String[] rows, String cta) {}
+    static final List<PCard> PORTFOLIO = List.of(
+            new PCard("Live-action", "clapper", "The good stuff, moving.",
+                    new String[]{"Browse live-action work", "Live-action services", "Case studies"}, "Play the reel"),
+            new PCard("2D animation", "anim", "The good stuff, drawn.",
+                    new String[]{"Browse 2D animation", "Animation services"}, "Play the reel"),
+            new PCard("Photography", "camera", "The good stuff, holding still.",
+                    new String[]{"Architectural", "Automotive", "Conferences & ceremonies", "Headshots", "Lifestyle", "Live events"},
+                    "All photography"));
+
+    static String[] wrap2(Canvas c, String s, Font f, double maxW) {
+        StringBuilder l1 = new StringBuilder(), l2 = new StringBuilder();
+        for (String wd : s.split(" ")) {
+            if (l2.length() == 0 && c.width(l1 + wd, f) < maxW) l1.append(wd).append(' ');
+            else l2.append(wd).append(' ');
+        }
+        return new String[]{l1.toString().trim(), l2.toString().trim()};
+    }
+
+    static void bigPlay(Canvas c, double cx, double cy, double r) {
+        c.fill(new Ellipse2D.Double(cx - r * 1.5, cy - r * 1.5, r * 3, r * 3), white(30));
+        c.fill(new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2), white(240));
+        Path2D p = new Path2D.Double();
+        p.moveTo(cx - r * 0.28, cy - r * 0.4); p.lineTo(cx + r * 0.45, cy); p.lineTo(cx - r * 0.28, cy + r * 0.4); p.closePath();
+        c.fill(p, INK);
+    }
+
+    /** A photo-style thumbnail: a crop of the sequin hero with a tint. */
+    static void photoTile(Canvas c, int k, double x, double y, double w, double h) {
+        int[][] crops = {{880, 300}, {1060, 520}, {940, 640}, {1120, 330}, {1000, 450}, {900, 560}};
+        Color[] tints = {cyan(40), new Color(138, 123, 255, 60), new Color(40, 190, 170, 50), new Color(0, 0, 0, 0),
+                new Color(255, 170, 90, 40), new Color(58, 123, 255, 60)};
+        int[] cr = crops[k % crops.length];
+        double sw = 300, sh = sw * h / w;
+        c.g.drawImage(c.bg, (int) x, (int) y, (int) (x + w), (int) (y + h),
+                cr[0] * S, cr[1] * S, (int) ((cr[0] + sw) * S), (int) ((cr[1] + sh) * S), null);
+        c.fill(new Rectangle2D.Double(x, y, w, h), tints[k % tints.length]);
+        c.g.setPaint(new GradientPaint(0, (float) (y + h * 0.4), new Color(2, 8, 20, 0), 0, (float) (y + h), new Color(2, 8, 20, 220)));
+        c.g.fill(new Rectangle2D.Double(x, y, w, h));
+    }
+
+    static Canvas portfolioFrames(BufferedImage bg, BufferedImage blur, int openIdx, int hoverTile) {
+        Canvas c = base(bg, blur, 150);
+        c.glass(new Rectangle2D.Double(0, 0, W, 640), new Color(4, 10, 24, 240));
+        nav(c, "Portfolio", true);
+
+        double x = 64, y = NAV_H + 24, h = 640 - y - 32, gap = 12, open = 760;
+        double closed = (W - 128 - open - gap * 2) / 2;
+        for (int i = 0; i < 3; i++) {
+            PCard d = PORTFOLIO.get(i);
+            boolean on = i == openIdx, photo = d.art().equals("camera");
+            double w = on ? open : closed, fx = x;
+            Shape card = rr(fx, y, w, h, 18);
+            clipped(c, card, () -> {
+                artFocus = on ? 0.76 : 0.5;
+                art(c, d.art(), fx, y, w, h);
+                if (on) c.g.setPaint(new GradientPaint((float) fx, 0, new Color(5, 14, 32, 250), (float) (fx + w * (photo ? 1.6 : 0.92)), 0, new Color(5, 14, 32, 40)));
+                else c.g.setPaint(new GradientPaint(0, (float) (y + h * 0.35), new Color(3, 9, 22, 30), 0, (float) (y + h), new Color(3, 9, 22, 235)));
+                c.g.fill(card);
+            });
+            c.stroke(card, on ? cyan(110) : white(30), 1f);
+            c.text(String.format("%02d", i + 1), fx + 22, y + 34, font("Inter-Medium", 12f), on ? CYAN : white(170));
+
+            if (!on) {
+                if (!photo) bigPlay(c, fx + w / 2, y + h * 0.42, 26);
+                iconBox(c, d.art(), fx + 22, y + h - 150, 36, false);
+                c.text(d.name(), fx + 22, y + h - 82, font("Inter-SemiBold", 19f), Color.WHITE);
+                Font tf = font("Inter-Regular", 13f);
+                String[] t = wrap2(c, d.tagline(), tf, w - 44);
+                c.text(t[0], fx + 22, y + h - 58, tf, white(160));
+                c.text(t[1], fx + 22, y + h - 39, tf, white(160));
+                x += w + gap;
+                continue;
+            }
+            double rx = fx + w - 140;
+            c.fill(new Ellipse2D.Double(rx, y + 24, 9, 9), new Color(0xFF4D5E));
+            c.text("REC  00:00:12:08", rx + 16, y + 33, font("Inter-Medium", 11.5f), white(200));
+            c.text(d.name(), fx + 30, y + 90, tracked(font("InterDisplay-SemiBold", 38f), -0.02f), Color.WHITE);
+            c.text(d.tagline(), fx + 30, y + 118, font("Inter-Regular", 15f), white(180));
+
+            if (photo) {
+                Font lk = font("Inter-SemiBold", 14f);
+                double lx = fx + w - 30 - 22 - c.width(d.cta(), lk);
+                c.text(d.cta(), lx, y + 118, lk, CYAN);
+                arrow(c, lx + c.width(d.cta(), lk) + 8, y + 113, 12, CYAN, 1.6f);
+                double gx = fx + 30, gy = y + 146, tw = (w - 60 - 24) / 3, th = (h - 146 - 30 - 12) / 2;
+                Font tl = font("Inter-SemiBold", 14.5f);
+                for (int k = 0; k < 6; k++) {
+                    double tx = gx + (k % 3) * (tw + 12), ty = gy + (k / 3) * (th + 12);
+                    boolean hv = k == hoverTile;
+                    Shape tile = rr(tx, ty, tw, th, 12);
+                    final int kk = k;
+                    clipped(c, tile, () -> photoTile(c, kk, tx, ty, tw, th));
+                    c.stroke(tile, hv ? CYAN : white(40), hv ? 1.6f : 1f);
+                    c.text(d.rows()[k], tx + 16, ty + th - 16, tl, hv ? CYAN : Color.WHITE);
+                    if (hv) arrow(c, tx + tw - 30, ty + th - 21, 13, CYAN, 1.7f);
+                }
+            } else {
+                double in = 20, L = 18;
+                double[][] corners = {{fx + w - in, y + in + 34, -1, 1}, {fx + w - in, y + h - in, -1, -1}};
+                for (double[] k : corners) {
+                    Path2D p = new Path2D.Double();
+                    p.moveTo(k[0], k[1] + L * k[3]); p.lineTo(k[0], k[1]); p.lineTo(k[0] + L * k[2], k[1]);
+                    c.stroke(p, white(150), 1.5f);
+                }
+                Font rf = font("Inter-Medium", 18f);
+                double ly = y + 186, rw = 340;
+                for (int k = 0; k < d.rows().length; k++) {
+                    boolean hv = k == 0;
+                    if (hv) {
+                        c.fill(rr(fx + 18, ly - 29, rw + 24, 44, 10), new Color(255, 255, 255, 18));
+                        arrow(c, fx + 18 + rw - 4, ly - 7, 14, CYAN, 1.8f);
+                    }
+                    c.text(d.rows()[k], fx + 30, ly, rf, hv ? CYAN : white(225));
+                    if (!hv) c.fill(new Rectangle2D.Double(fx + 30, ly + 15, rw, 1), white(20));
+                    ly += 48;
+                }
+                double pcx = fx + w * 0.74, pcy = y + h * 0.5;
+                bigPlay(c, pcx, pcy, 40);
+                Font pf = font("Inter-SemiBold", 15f);
+                c.text(d.cta(), pcx - c.width(d.cta(), pf) / 2, pcy + 92, pf, Color.WHITE);
+            }
+            x += w + gap;
+        }
+        return c;
+    }
+
+    static Canvas portfolioCards(BufferedImage bg, BufferedImage blur, int hover) {
+        Canvas c = base(bg, blur, 120);
+        double ph = 600;
+        c.glass(new Rectangle2D.Double(0, 0, W, ph), new Color(6, 16, 36, 228));
+        c.fill(new Rectangle2D.Double(0, ph, W, 1), white(30));
+        nav(c, "Portfolio", true);
+
+        double gap = 20, cw = (W - 128 - gap * 2) / 3, cy = NAV_H + 24, ch = ph - cy - 28, ah = 190;
+        Font title = font("Inter-SemiBold", 19f), tag = font("Inter-Italic", 13.5f), item = font("Inter-Regular", 14.5f);
+        for (int i = 0; i < 3; i++) {
+            PCard d = PORTFOLIO.get(i);
+            boolean on = i == hover, photo = d.art().equals("camera");
+            double x = 64 + i * (cw + gap);
+            Shape card = rr(x, cy, cw, ch, 16);
+            c.fill(card, on ? new Color(16, 34, 64, 235) : new Color(10, 24, 50, 225));
+            Area artArea = new Area(rr(x, cy, cw, ah, 16));
+            artArea.add(new Area(new Rectangle2D.Double(x, cy + ah - 20, cw, 20)));
+            if (photo) {
+                // a contact sheet of the six photo types instead of a single image
+                clipped(c, artArea, () -> {
+                    double tw = (cw - 4) / 3, th = (ah - 2) / 2;
+                    for (int k = 0; k < 6; k++) photoTile(c, k, x + (k % 3) * (tw + 2), cy + (k / 3) * (th + 2), tw, th);
+                });
+            } else {
+                artFocus = 0.5;
+                clipped(c, artArea, () -> art(c, d.art(), x, cy, cw, ah));
+                bigPlay(c, x + cw / 2, cy + ah / 2, 24);
+            }
+            c.stroke(card, on ? cyan(90) : white(24), 1f);
+            c.fill(new Rectangle2D.Double(x, cy + ah, cw, 1), white(24));
+
+            c.text(d.name(), x + 24, cy + ah + 38, title, Color.WHITE);
+            c.text(d.tagline(), x + 24, cy + ah + 61, tag, white(140));
+            double ly = cy + ah + 100;
+            if (photo) {
+                for (int k = 0; k < 6; k++) {
+                    boolean hv = on && k == 4;
+                    double tx = x + 24 + (k / 3) * 236, ty = ly + (k % 3) * 30;
+                    c.text(d.rows()[k], tx, ty, item, hv ? CYAN : white(205));
+                    if (hv) arrow(c, tx + c.width(d.rows()[k], item) + 8, ty - 5, 11, CYAN, 1.6f);
+                }
+            } else {
+                for (int k = 0; k < d.rows().length; k++) c.text(d.rows()[k], x + 24, ly + k * 30, item, white(205));
+            }
+            Font more = font("Inter-SemiBold", 13.5f);
+            double my = cy + ch - 24;
+            c.text(d.cta(), x + 24, my, more, on ? CYAN : white(200));
+            arrow(c, x + 24 + c.width(d.cta(), more) + 8, my - 5, 12, on ? CYAN : white(200), 1.6f);
+        }
+        return c;
+    }
+
     // ---------- overview sheet ----------
     static void overview(File dir, String outName, String heading, String sub, String[][] concepts) throws Exception {
         int tw = 640, th = 400, gap = 48, cols = 2;
@@ -1434,6 +1616,22 @@ public class MenuConcepts {
                 {"A3-cards.png", "A3 · Cards with artwork on top",
                         "Same four groups as equal cards. Every list fits,",
                         "so no 'more' truncation is needed."},
+        });
+
+        portfolioFrames(bg, blur, 2, 4).save(new File(dir, "P1-frames-photography.png"));
+        portfolioFrames(bg, blur, 0, -1).save(new File(dir, "P2-frames-live-action.png"));
+        portfolioCards(bg, blur, 2).save(new File(dir, "P3-cards.png"));
+        overview(dir, "00-portfolio-overview.png", "pearldrop.com v3 — Portfolio, card styles",
+                "Three real groups, so three cards: Live-action, 2D animation, Photography.", new String[][]{
+                {"P1-frames-photography.png", "P1 · Expanding frames — Photography",
+                        "The open frame becomes a grid of the six photo types,",
+                        "echoing the thumbnails from the draft."},
+                {"P2-frames-live-action.png", "P2 · Expanding frames — Live-action",
+                        "Video frames open on a big play button and the",
+                        "links that matter: work, services, case studies."},
+                {"P3-cards.png", "P3 · Cards with artwork on top",
+                        "Video cards lead with a play button; Photography's",
+                        "header is a contact sheet of all six types."},
         });
         System.out.println("Wrote concepts to " + dir.getAbsolutePath());
     }
