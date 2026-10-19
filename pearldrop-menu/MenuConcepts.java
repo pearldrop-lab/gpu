@@ -625,8 +625,479 @@ public class MenuConcepts {
         c.fill(rr(x + w / 2 - 66, y + hh - 16, 132, 5, 2.5), white(200));
     }
 
+    // =====================================================================
+    // SERVICES — the busiest menu (15 / 2 / 5 / 5 items)
+    // =====================================================================
+    record Discipline(String name, String icon, String tagline, String[][] groups) {
+        int count() { int n = 0; for (String[] g : groups) n += g.length - 1; return n; }
+    }
+    // Live-action's 15 items regrouped so the column stops being a wall.
+    static final List<Discipline> SERVICES = List.of(
+            new Discipline("Live-action video", "clapper", "Real people, real places, real good.", new String[][]{
+                    {"Formats", "Company profiles", "Promotional", "Product", "Training", "Internal communications",
+                            "Landing pages", "Case studies", "Vodcasts"},
+                    {"Events", "Activations & launches", "Conferences & ceremonies", "Live events", "Live-streaming"},
+                    {"Specialist", "Aerial / drone", "Automotive", "Charity"}}),
+            new Discipline("Animation", "anim", "For when reality needs a rewrite.", new String[][]{
+                    {"", "Explainer", "Character"}}),
+            new Discipline("Photography", "camera", "Stills that stop the scroll.", new String[][]{
+                    {"", "Architectural", "Automotive", "Headshots", "Lifestyle", "Live-event"}}),
+            new Discipline("Post-production", "wave", "Where it all comes together.", new String[][]{
+                    {"", "Editing", "VFX", "Subtitling & transcription", "British Sign Language (BSL)", "AI video production"}}));
+
+    static void icon2(Canvas c, String name, double cx, double cy, Color col) {
+        float w = 1.6f;
+        switch (name) {
+            case "clapper" -> {
+                c.stroke(rr(cx - 8, cy - 3, 16, 11, 2), col, w);
+                Path2D p = new Path2D.Double();
+                p.moveTo(cx - 8, cy - 4); p.lineTo(cx + 7, cy - 9);
+                p.moveTo(cx - 3, cy - 5.6); p.lineTo(cx - 1, cy - 2);
+                p.moveTo(cx + 2, cy - 7.3); p.lineTo(cx + 4, cy - 3.6);
+                c.stroke(p, col, w);
+            }
+            case "anim" -> {
+                c.stroke(new Ellipse2D.Double(cx - 1, cy - 6, 10, 10), col, w);
+                c.stroke(new Line2D.Double(cx - 9, cy - 3, cx - 4, cy - 3), col, w);
+                c.stroke(new Line2D.Double(cx - 8, cy + 1, cx - 3, cy + 1), col, w);
+                c.stroke(new Line2D.Double(cx - 6, cy + 5, cx - 2, cy + 5), col, w);
+            }
+            case "camera" -> {
+                c.stroke(rr(cx - 9, cy - 5, 18, 13, 3), col, w);
+                c.stroke(new Ellipse2D.Double(cx - 3.5, cy - 2, 7, 7), col, w);
+                c.stroke(new Line2D.Double(cx - 4, cy - 7.5, cx + 2, cy - 7.5), col, w);
+            }
+            case "wave" -> {
+                double[] hs = {4, 9, 14, 8, 11, 5};
+                for (int i = 0; i < hs.length; i++)
+                    c.stroke(new Line2D.Double(cx - 7.5 + i * 3, cy - hs[i] / 2, cx - 7.5 + i * 3, cy + hs[i] / 2), col, w);
+            }
+            default -> icon(c, name, cx, cy, col);
+        }
+    }
+
+    static void clipped(Canvas c, Shape s, Runnable r) {
+        Shape old = c.g.getClip();
+        c.g.clip(s);
+        r.run();
+        c.g.setClip(old);
+    }
+
+    /** Procedural artwork per discipline, filling the given box. */
+    static void art(Canvas c, String kind, double x, double y, double w, double h) {
+        Graphics2D g = c.g;
+        switch (kind) {
+            case "clapper" -> {
+                double sh = Math.min(560, 640 * h / w), sw = sh * w / h;
+                double sx = 1110 - sw / 2, sy = 600 - sh / 2;
+                g.drawImage(c.bg, (int) x, (int) y, (int) (x + w), (int) (y + h),
+                        (int) (sx * S), (int) (sy * S), (int) ((sx + sw) * S), (int) ((sy + sh) * S), null);
+                g.setPaint(new RadialGradientPaint(new Point2D.Double(x + w * 0.65, y + h * 0.3), (float) Math.max(w, h) * 0.7f,
+                        new float[]{0f, 1f}, new Color[]{new Color(80, 170, 255, 70), new Color(80, 170, 255, 0)}));
+                g.fill(new Rectangle2D.Double(x, y, w, h));
+            }
+            case "anim" -> {
+                g.setPaint(new GradientPaint((float) x, (float) y, new Color(0x241A66), (float) (x + w), (float) (y + h), new Color(0x0B2150)));
+                g.fill(new Rectangle2D.Double(x, y, w, h));
+                double u = Math.min(w, h);
+                // rotated square
+                AffineTransform at = g.getTransform();
+                g.rotate(Math.toRadians(18), x + w * 0.8, y + h * 0.25);
+                c.fill(rr(x + w * 0.8 - u * 0.14, y + h * 0.25 - u * 0.14, u * 0.28, u * 0.28, u * 0.06), new Color(138, 123, 255, 150));
+                g.setTransform(at);
+                // motion path with onion-skinned ball
+                CubicCurve2D.Double path = new CubicCurve2D.Double(x + w * 0.08, y + h * 0.85, x + w * 0.3, y + h * 0.05,
+                        x + w * 0.5, y + h * 0.95, x + w * 0.78, y + h * 0.55);
+                g.setColor(cyan(110));
+                g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[]{4f, 5f}, 0f));
+                g.draw(path);
+                double r = u * 0.075;
+                for (int i = 0; i <= 6; i++) {
+                    double t = i / 6.0, mt = 1 - t;
+                    double px = mt * mt * mt * path.x1 + 3 * mt * mt * t * path.ctrlx1 + 3 * mt * t * t * path.ctrlx2 + t * t * t * path.x2;
+                    double py = mt * mt * mt * path.y1 + 3 * mt * mt * t * path.ctrly1 + 3 * mt * t * t * path.ctrly2 + t * t * t * path.y2;
+                    if (i == 6) {
+                        c.fill(new Ellipse2D.Double(px - r * 2, py - r * 2, r * 4, r * 4), cyan(40));
+                        c.fill(new Ellipse2D.Double(px - r, py - r, r * 2, r * 2), CYAN);
+                    } else {
+                        c.stroke(new Ellipse2D.Double(px - r * 0.8, py - r * 0.8, r * 1.6, r * 1.6), cyan(40 + i * 25), 1.2f);
+                    }
+                    if (i % 3 == 0) {
+                        Path2D d = new Path2D.Double();
+                        d.moveTo(px, py + r * 2.2 - 4); d.lineTo(px + 4, py + r * 2.2); d.lineTo(px, py + r * 2.2 + 4); d.lineTo(px - 4, py + r * 2.2); d.closePath();
+                        c.fill(d, new Color(0xFFD36E));
+                    }
+                }
+            }
+            case "camera" -> {
+                g.setPaint(new GradientPaint((float) x, (float) y, new Color(0x0D3A4A), (float) x, (float) (y + h), new Color(0x061A2B)));
+                g.fill(new Rectangle2D.Double(x, y, w, h));
+                double cx = x + w / 2, cy = y + h / 2, R = Math.min(w, h) * 0.32;
+                c.fill(new Ellipse2D.Double(cx - R, cy - R, 2 * R, 2 * R), new Color(4, 14, 26, 200));
+                c.stroke(new Ellipse2D.Double(cx - R, cy - R, 2 * R, 2 * R), cyan(120), 1.4f);
+                c.stroke(new Ellipse2D.Double(cx - R * 1.18, cy - R * 1.18, R * 2.36, R * 2.36), white(30), 1f);
+                double rin = R * 0.42;
+                Path2D hex = new Path2D.Double();
+                for (int i = 0; i < 6; i++) {
+                    double a = Math.PI / 6 + i * Math.PI / 3;
+                    double hx = cx + rin * Math.cos(a), hy = cy + rin * Math.sin(a);
+                    if (i == 0) hex.moveTo(hx, hy); else hex.lineTo(hx, hy);
+                    // blade edge running out to the rim
+                    double b = a + Math.PI / 2;
+                    double t = Math.sqrt(R * R - rin * rin);
+                    c.stroke(new Line2D.Double(hx, hy, hx + t * Math.cos(b), hy + t * Math.sin(b)), cyan(90), 1.2f);
+                }
+                hex.closePath();
+                g.setPaint(new RadialGradientPaint(new Point2D.Double(cx - rin * 0.3, cy - rin * 0.3), (float) rin,
+                        new float[]{0f, 1f}, new Color[]{new Color(0x9FF0FF), new Color(0x1C6E9A)}));
+                g.fill(hex);
+                double in = Math.min(w, h) * 0.08, L = Math.min(w, h) * 0.08;
+                double[][] corners = {{x + in, y + in, 1, 1}, {x + w - in, y + in, -1, 1}, {x + in, y + h - in, 1, -1}, {x + w - in, y + h - in, -1, -1}};
+                for (double[] k : corners) {
+                    Path2D p = new Path2D.Double();
+                    p.moveTo(k[0], k[1] + L * k[3]); p.lineTo(k[0], k[1]); p.lineTo(k[0] + L * k[2], k[1]);
+                    c.stroke(p, white(170), 1.6f);
+                }
+                c.text("f/2.8   1/250   ISO 200", x + in + 4, y + h - in - 8, font("Inter-Medium", 10.5f), white(150));
+            }
+            case "wave" -> {
+                g.setPaint(new GradientPaint((float) x, (float) y, new Color(0x10224A), (float) x, (float) (y + h), new Color(0x081530)));
+                g.fill(new Rectangle2D.Double(x, y, w, h));
+                Color[] cols = {new Color(47, 216, 255, 170), new Color(58, 123, 255, 190), new Color(138, 123, 255, 170), new Color(40, 190, 170, 160)};
+                double th = h * 0.11, ty = y + h * 0.18;
+                for (int row = 0; row < 4; row++) {
+                    double cx = x + 10 - row * 23 % 40, yy = ty + row * (th + 6);
+                    int k = 0;
+                    while (cx < x + w) {
+                        double cw = 30 + hash(row, k) * w * 0.35;
+                        c.fill(rr(cx, yy, cw - 4, th, 3), cols[(row + k) % 4]);
+                        cx += cw + 2; k++;
+                    }
+                }
+                double wy = ty + 4 * (th + 6) + h * 0.12, mid = wy + h * 0.08;
+                for (double bx = x + 6; bx < x + w - 4; bx += 4) {
+                    double a = Math.abs(Math.sin(bx * 0.09) * Math.cos(bx * 0.023)) * h * 0.08 + 1.5;
+                    c.fill(new Rectangle2D.Double(bx, mid - a, 2, a * 2), white(110));
+                }
+                double ph = x + w * 0.62;
+                c.fill(new Rectangle2D.Double(ph - 0.75, y + h * 0.1, 1.5, h * 0.82), CYAN);
+                Path2D tri = new Path2D.Double();
+                tri.moveTo(ph - 6, y + h * 0.1 - 8); tri.lineTo(ph + 6, y + h * 0.1 - 8); tri.lineTo(ph, y + h * 0.1); tri.closePath();
+                c.fill(tri, CYAN);
+            }
+        }
+    }
+
+    static void iconBox(Canvas c, String icon, double x, double y, double s, boolean on) {
+        c.fill(rr(x, y, s, s, s * 0.27), on ? CYAN : cyan(28));
+        icon2(c, icon, x + s / 2, y + s / 2, on ? INK : CYAN);
+    }
+
+    // ---------- S1: compact dropdown, Live-action regrouped ----------
+    static Canvas servicesA(BufferedImage bg, BufferedImage blur) {
+        Canvas c = base(bg, blur, 90);
+        Map<String, double[]> pos = nav(c, "Services", false);
+        double[] t = pos.get("Services");
+        double pw = 940, px = Math.max(64, Math.min(t[0] + t[1] / 2 - pw / 2, W - 64 - pw)), py = 82, ph = 470;
+        Path2D notch = new Path2D.Double();
+        double nx = t[0] + t[1] / 2;
+        notch.moveTo(nx - 9, py + 1); notch.lineTo(nx, py - 8); notch.lineTo(nx + 9, py + 1); notch.closePath();
+        Area shape = new Area(rr(px, py, pw, ph, 18));
+        shape.add(new Area(notch));
+        c.g.setColor(new Color(0, 0, 0, 50));
+        c.g.fill(rr(px - 2, py + 6, pw + 4, ph + 6, 20));
+        c.glass(shape, PANEL);
+        c.stroke(shape, white(26), 1f);
+
+        Font lf = label(), sub = font("Inter-Medium", 12f), item = font("Inter-Regular", 14.5f);
+        double top = py + 40, lh = 32, colW = 222;
+        double x0 = px + 32;
+        // Live-action spans two columns, with a soft tint to mark it as the big one.
+        c.fill(rr(px + 14, py + 14, colW * 2 + 18, ph - 92, 12), white(5));
+        Discipline la = SERVICES.get(0);
+        c.text("LIVE-ACTION VIDEO", x0, top, lf, CYAN_DIM);
+        c.text("15", x0 + c.width("LIVE-ACTION VIDEO", lf) + 8, top, lf, white(90));
+        double[][] slots = {{x0, top + 30}, {x0 + colW, top + 30}, {x0 + colW, top + 30 + 5 * lh + 10}};
+        for (int gi = 0; gi < la.groups().length; gi++) {
+            String[] grp = la.groups()[gi];
+            double gx = slots[gi][0], gy = slots[gi][1];
+            c.text(grp[0], gx, gy, sub, white(110));
+            for (int i = 1; i < grp.length; i++) {
+                double y = gy + i * lh;
+                boolean hover = gi == 1 && i == 3;
+                if (hover) {
+                    hoverRow(c, gx - 10, y - 22, colW - 14, 32);
+                    arrow(c, gx + colW - 46, y - 5, 11, CYAN, 1.6f);
+                }
+                c.text(grp[i], gx, y, item, hover ? Color.WHITE : white(205));
+            }
+        }
+        // Remaining three disciplines in two columns.
+        double x2 = x0 + colW * 2 + 32, x3 = x2 + colW - 20;
+        double[][] spots = {{x2, top}, {x3, top}, {x2, top + 3 * lh + 34}};
+        int[] order = {1, 2, 3};
+        for (int k = 0; k < 3; k++) {
+            Discipline d = SERVICES.get(order[k]);
+            double gx = spots[k][0], gy = spots[k][1];
+            c.text(d.name().toUpperCase(), gx, gy, lf, CYAN_DIM);
+            String[] items = d.groups()[0];
+            for (int i = 1; i < items.length; i++) c.text(items[i], gx, gy + 30 + (i - 1) * lh, item, white(205));
+        }
+
+        double fy = py + ph - 62;
+        c.fill(new Rectangle2D.Double(px + 1, fy, pw - 2, 1), LINE);
+        c.fill(rr(px + 1, fy + 1, pw - 2, 60, 0), white(6));
+        c.fill(new Ellipse2D.Double(x0 - 2, fy + 15, 30, 30), CYAN);
+        icon(c, "play", x0 + 13.5, fy + 30, INK);
+        c.text("Watch the showreel", x0 + 40, fy + 36, font("Inter-SemiBold", 15f), Color.WHITE);
+        Font q = font("Inter-Medium", 14f);
+        String s = "Not sure what you need? Talk to a producer";
+        double sx = px + pw - 32 - 22 - c.width(s, q);
+        c.text(s, sx, fy + 36, q, white(190));
+        arrow(c, sx + c.width(s, q) + 8, fy + 31, 13, CYAN, 1.7f);
+        return c;
+    }
+
+    // ---------- S2: mega panel with a discipline rail ----------
+    static Canvas servicesB(BufferedImage bg, BufferedImage blur) {
+        Canvas c = base(bg, blur, 120);
+        double ph = 490;
+        c.glass(new Rectangle2D.Double(0, 0, W, ph), new Color(6, 16, 36, 240));
+        c.fill(new Rectangle2D.Double(0, ph, W, 1), white(30));
+        c.fill(new Rectangle2D.Double(64, NAV_H, W - 128, 1), LINE);
+        nav(c, "Services", true);
+
+        double rx = 64, ry = NAV_H + 28, rw = 330, rowH = 78;
+        Font name = font("Inter-SemiBold", 17f), tag = font("Inter-Regular", 13f);
+        for (int i = 0; i < SERVICES.size(); i++) {
+            Discipline d = SERVICES.get(i);
+            double y = ry + i * (rowH + 6);
+            boolean on = i == 0;
+            if (on) {
+                c.fill(rr(rx, y, rw, rowH, 14), white(12));
+                c.fill(rr(rx, y + 18, 3, rowH - 36, 1.5), CYAN);
+            }
+            iconBox(c, d.icon(), rx + 20, y + 19, 40, on);
+            c.text(d.name(), rx + 76, y + 35, name, on ? Color.WHITE : white(200));
+            c.text(d.tagline(), rx + 76, y + 56, tag, white(on ? 160 : 110));
+            Font cnt = font("Inter-Medium", 12f);
+            String n = String.valueOf(d.count());
+            c.text(n, rx + rw - 24 - c.width(n, cnt), y + 35, cnt, white(on ? 170 : 90));
+        }
+        c.fill(new Rectangle2D.Double(rx + rw + 36, ry, 1, ph - ry - 28), LINE);
+
+        double cx = rx + rw + 76;
+        Discipline la = SERVICES.get(0);
+        c.text("Live-action video", cx, ry + 34, tracked(font("InterDisplay-SemiBold", 28f), -0.015f), Color.WHITE);
+        Font link = font("Inter-SemiBold", 14f);
+        String all = "All live-action";
+        double lx = 1376 - 290 - 40 - 20 - c.width(all, link);
+        c.text(all, lx, ry + 30, link, CYAN);
+        arrow(c, lx + c.width(all, link) + 8, ry + 25, 12, CYAN, 1.6f);
+
+        Font lf = label(), item = font("Inter-Medium", 14.5f);
+        double gy = ry + 84;
+        double[] gx = {cx, cx + 230, cx + 460};
+        for (int k = 0; k < 3; k++) {
+            String[] grp = la.groups()[k];
+            c.text(grp[0].toUpperCase(), gx[k], gy, lf, CYAN_DIM);
+            int perCol = 8;
+            for (int i = 1; i < grp.length; i++) {
+                double y = gy + 30 + ((i - 1) % perCol) * 31;
+                boolean hover = k == 0 && i == 1;
+                c.text(grp[i], gx[k], y, item, hover ? CYAN : white(210));
+                if (hover) arrow(c, gx[k] + c.width(grp[i], item) + 10, y - 5, 11, CYAN, 1.6f);
+            }
+        }
+        // feature card
+        double fx = 1376 - 290, fy = ry, fw = 290, fh = ph - ry - 32;
+        Shape card = rr(fx, fy, fw, fh, 16);
+        clipped(c, card, () -> {
+            art(c, "clapper", fx, fy, fw, fh);
+            c.g.setPaint(new GradientPaint(0, (float) (fy + fh * 0.35), new Color(2, 8, 20, 0), 0, (float) (fy + fh), new Color(2, 8, 20, 230)));
+            c.g.fill(card);
+        });
+        c.stroke(card, white(30), 1f);
+        c.fill(new Ellipse2D.Double(fx + 20, fy + 20, 40, 40), white(235));
+        icon(c, "play", fx + 41, fy + 40, INK);
+        c.text("FEATURED", fx + 22, fy + fh - 92, lf, CYAN_DIM);
+        c.text("Live-action reel", fx + 22, fy + fh - 64, font("Inter-SemiBold", 18f), Color.WHITE);
+        c.text("A cut of what we shoot,", fx + 22, fy + fh - 40, tag, white(170));
+        c.text("from launches to drone work.", fx + 22, fy + fh - 21, tag, white(170));
+        return c;
+    }
+
+    // ---------- S3: four discipline cards with artwork ----------
+    static Canvas servicesC(BufferedImage bg, BufferedImage blur) {
+        Canvas c = base(bg, blur, 120);
+        double ph = 580;
+        c.glass(new Rectangle2D.Double(0, 0, W, ph), new Color(6, 16, 36, 228));
+        c.fill(new Rectangle2D.Double(0, ph, W, 1), white(30));
+        nav(c, "Services", true);
+
+        double gap = 20, cw = (W - 128 - gap * 3) / 4, cy = NAV_H + 24, ch = ph - cy - 28;
+        Font title = font("Inter-SemiBold", 18f), tag = font("Inter-Italic", 13f), item = font("Inter-Regular", 14.5f);
+        for (int i = 0; i < 4; i++) {
+            Discipline d = SERVICES.get(i);
+            double x = 64 + i * (cw + gap);
+            boolean hover = i == 2;
+            Shape card = rr(x, cy, cw, ch, 16);
+            c.fill(card, hover ? new Color(16, 34, 64, 235) : new Color(10, 24, 50, 225));
+            Shape top = rr(x, cy, cw, 140, 16);
+            Area artArea = new Area(top);
+            artArea.add(new Area(new Rectangle2D.Double(x, cy + 120, cw, 20)));
+            final double fx = x;
+            clipped(c, artArea, () -> art(c, d.icon(), fx, cy, cw, 140));
+            c.stroke(card, hover ? cyan(90) : white(24), 1f);
+            c.fill(new Rectangle2D.Double(x, cy + 140, cw, 1), white(24));
+
+            c.text(d.name(), x + 22, cy + 176, title, Color.WHITE);
+            c.text(d.tagline(), x + 22, cy + 198, tag, white(140));
+            List<String> items = new ArrayList<>();
+            for (String[] g : d.groups()) for (int k = 1; k < g.length; k++) items.add(g[k]);
+            if (i == 0) items = List.of("Company profiles", "Promotional", "Live events", "Product", "Aerial / drone");
+            for (int k = 0; k < items.size(); k++) c.text(items.get(k), x + 22, cy + 236 + k * 30, item, white(205));
+            Font more = font("Inter-SemiBold", 13.5f);
+            String m = i == 0 ? "All 15 services" : "Explore " + d.name().toLowerCase();
+            double my = cy + ch - 24;
+            c.text(m, x + 22, my, more, hover ? CYAN : white(200));
+            arrow(c, x + 22 + c.width(m, more) + 8, my - 5, 12, hover ? CYAN : white(200), 1.6f);
+        }
+        return c;
+    }
+
+    // ---------- S4: editorial — big disciplines left, detail right ----------
+    static Canvas servicesD(BufferedImage bg, BufferedImage blur) {
+        Canvas c = base(bg, blur, 150);
+        double ph = 620;
+        c.glass(new Rectangle2D.Double(0, 0, W, ph), new Color(5, 13, 30, 244));
+        c.fill(new Rectangle2D.Double(0, ph - 3, W, 3), CYAN);
+        nav(c, "Services", true);
+
+        Font big = tracked(font("InterDisplay-SemiBold", 44f), -0.02f), num = font("Inter-Medium", 12f), tag = font("Inter-Regular", 14f);
+        c.text("WHAT WE MAKE", 64, 156, label(), CYAN_DIM);
+        for (int i = 0; i < 4; i++) {
+            Discipline d = SERVICES.get(i);
+            double y = 222 + i * 96;
+            boolean on = i == 0;
+            c.text(String.format("%02d", i + 1), 64, y - 26, num, on ? CYAN : white(90));
+            c.text(d.name(), 100, y, big, on ? CYAN : white(on ? 255 : 150));
+            if (on) arrow(c, 100 + c.width(d.name(), big) + 18, y - 15, 26, CYAN, 2.2f);
+            c.text(d.tagline(), 100, y + 28, tag, white(on ? 180 : 90));
+        }
+        c.fill(new Rectangle2D.Double(700, 136, 1, 440), LINE);
+
+        Discipline la = SERVICES.get(0);
+        Font lf = label(), item = font("Inter-Regular", 15f);
+        double[] gx = {750, 990, 990};
+        double[] gy = {156, 156, 156 + 5 * 34 + 30};
+        for (int k = 0; k < 3; k++) {
+            String[] grp = la.groups()[k];
+            c.text(grp[0].toUpperCase(), gx[k], gy[k], lf, CYAN_DIM);
+            for (int i = 1; i < grp.length; i++) c.text(grp[i], gx[k], gy[k] + i * 34, item, white(210));
+        }
+        // a small art panel to the right
+        double ax = 1216, ay = 140, aw = 160, ah = 300;
+        Shape a = rr(ax, ay, aw, ah, 14);
+        clipped(c, a, () -> art(c, "clapper", ax, ay, aw, ah));
+        c.stroke(a, white(30), 1f);
+        Shape cta = rr(ax, ay + ah + 20, aw, 116, 14);
+        c.fill(cta, cyan(18));
+        c.stroke(cta, cyan(60), 1f);
+        c.text("Not sure", ax + 18, ay + ah + 52, font("Inter-SemiBold", 15f), Color.WHITE);
+        c.text("where to start?", ax + 18, ay + ah + 72, font("Inter-SemiBold", 15f), Color.WHITE);
+        c.text("Talk to a producer", ax + 18, ay + ah + 102, font("Inter-Medium", 13f), CYAN);
+        return c;
+    }
+
+    // ---------- S5: the visually interesting one — expanding frames ----------
+    static Canvas servicesE(BufferedImage bg, BufferedImage blur) {
+        Canvas c = base(bg, blur, 150);
+        double ph = 640;
+        c.glass(new Rectangle2D.Double(0, 0, W, ph), new Color(4, 10, 24, 240));
+        nav(c, "Services", true);
+
+        double x = 64, y = NAV_H + 24, h = ph - y - 32, gap = 12, open = 660;
+        double closed = (W - 128 - open - gap * 3) / 3;
+        for (int i = 0; i < 4; i++) {
+            Discipline d = SERVICES.get(i);
+            boolean on = i == 0;
+            double w = on ? open : closed, fx = x;
+            Shape card = rr(fx, y, w, h, 18);
+            clipped(c, card, () -> {
+                if (on) {
+                    // art sits right; content panel fades in from the left
+                    art(c, d.icon(), fx, y, w, h);
+                    c.g.setPaint(new GradientPaint((float) fx, 0, new Color(5, 14, 32, 250), (float) (fx + w * 0.92), 0, new Color(5, 14, 32, 40)));
+                    c.g.fill(card);
+                } else {
+                    art(c, d.icon(), fx, y, w, h);
+                    c.g.setPaint(new GradientPaint(0, (float) (y + h * 0.35), new Color(3, 9, 22, 30), 0, (float) (y + h), new Color(3, 9, 22, 235)));
+                    c.g.fill(card);
+                }
+            });
+            c.stroke(card, on ? cyan(110) : white(30), 1f);
+
+            Font num = font("Inter-Medium", 12f);
+            c.text(String.format("%02d", i + 1), fx + 22, y + 34, num, on ? CYAN : white(170));
+            if (!on) {
+                iconBox(c, d.icon(), fx + 22, y + h - 150, 36, false);
+                c.text(d.name(), fx + 22, y + h - 82, font("Inter-SemiBold", 19f), Color.WHITE);
+                String[] words = d.tagline().split(" ");
+                StringBuilder l1 = new StringBuilder(), l2 = new StringBuilder();
+                Font tf = font("Inter-Regular", 13f);
+                for (String wd : words) {
+                    if (l2.length() == 0 && c.width(l1 + wd, tf) < w - 44) l1.append(wd).append(' ');
+                    else l2.append(wd).append(' ');
+                }
+                c.text(l1.toString().trim(), fx + 22, y + h - 58, tf, white(160));
+                c.text(l2.toString().trim(), fx + 22, y + h - 39, tf, white(160));
+            } else {
+                // REC overlay on the art side
+                double rx = fx + w - 140;
+                c.fill(new Ellipse2D.Double(rx, y + 24, 9, 9), new Color(0xFF4D5E));
+                c.text("REC  00:00:12:08", rx + 16, y + 33, font("Inter-Medium", 11.5f), white(200));
+                double in = 20, L = 18;
+                double[][] corners = {{fx + w - in, y + in + 34, -1, 1}, {fx + w - in, y + h - in, -1, -1}};
+                for (double[] k : corners) {
+                    Path2D p = new Path2D.Double();
+                    p.moveTo(k[0], k[1] + L * k[3]); p.lineTo(k[0], k[1]); p.lineTo(k[0] + L * k[2], k[1]);
+                    c.stroke(p, white(150), 1.5f);
+                }
+
+                c.text(d.name(), fx + 30, y + 90, tracked(font("InterDisplay-SemiBold", 38f), -0.02f), Color.WHITE);
+                c.text(d.tagline(), fx + 30, y + 118, font("Inter-Regular", 15f), white(180));
+                Font lf = label(), chip = font("Inter-Medium", 13f);
+                double cy = y + 160;
+                for (String[] grp : d.groups()) {
+                    c.text(grp[0].toUpperCase(), fx + 30, cy, lf, CYAN_DIM);
+                    double cx = fx + 30, row = cy + 14;
+                    for (int k = 1; k < grp.length; k++) {
+                        double cw = c.width(grp[k], chip) + 26;
+                        if (cx + cw > fx + 30 + 520) { cx = fx + 30; row += 36; }
+                        boolean hv = grp[0].equals("Events") && k == 3;
+                        Shape pill = rr(cx, row, cw, 29, 14.5);
+                        c.fill(pill, hv ? CYAN : new Color(10, 26, 52, 210));
+                        c.stroke(pill, hv ? CYAN : white(40), 1f);
+                        c.text(grp[k], cx + 13, row + 19.5, chip, hv ? INK : white(225));
+                        cx += cw + 8;
+                    }
+                    cy = row + 29 + 32;
+                }
+                Font bf = font("Inter-SemiBold", 14.5f);
+                String b = "Explore live-action";
+                double bw = c.width(b, bf) + 66, by = y + h - 70, bx = fx + w - 48 - bw;
+                c.fill(rr(bx, by, bw, 42, 21), Color.WHITE);
+                c.text(b, bx + 22, by + 26, bf, INK);
+                arrow(c, bx + 22 + c.width(b, bf) + 10, by + 21, 13, INK, 1.8f);
+            }
+            x += w + gap;
+        }
+        return c;
+    }
+
     // ---------- overview sheet ----------
-    static void overview(File dir, String[][] concepts) throws Exception {
+    static void overview(File dir, String outName, String heading, String sub, String[][] concepts) throws Exception {
         int tw = 640, th = 400, gap = 48, cols = 2;
         int rows = (concepts.length + 1) / cols;
         int ow = 64 * 2 + tw * cols + gap, oh = 200 + rows * (th + 170);
@@ -641,10 +1112,10 @@ public class MenuConcepts {
         g.fillRect(0, 0, ow, oh);
         g.setFont(tracked(font("InterDisplay-SemiBold", 36f), -0.02f));
         g.setColor(Color.WHITE);
-        g.drawString("pearldrop.com v3 — menu concepts", 64, 96);
+        g.drawString(heading, 64, 96);
         g.setFont(font("Inter-Regular", 16f));
         g.setColor(white(160));
-        g.drawString("Five directions for the About us menu. Same pages throughout; legal links move to the footer.", 64, 130);
+        g.drawString(sub, 64, 130);
 
         for (int i = 0; i < concepts.length; i++) {
             int x = 64 + (i % cols) * (tw + gap), y = 180 + (i / cols) * (th + 170);
@@ -669,7 +1140,7 @@ public class MenuConcepts {
             for (int l = 2; l < concepts[i].length; l++) g.drawString(concepts[i][l], x, y + th + 40 + (l - 1) * 24);
         }
         g.dispose();
-        ImageIO.write(out, "png", new File(dir, "00-overview.png"));
+        ImageIO.write(out, "png", new File(dir, outName));
     }
 
     public static void main(String[] args) throws Exception {
@@ -684,7 +1155,8 @@ public class MenuConcepts {
         conceptD(bg, blur).save(new File(dir, "D-editorial-overlay.png"));
         conceptE(bg).save(new File(dir, "E-mobile-drill-in.png"));
 
-        overview(dir, new String[][]{
+        overview(dir, "00-overview.png", "pearldrop.com v3 — About us menu",
+                "Five directions for the About us menu. Same pages throughout; legal links move to the footer.", new String[][]{
                 {"A-compact-dropdown.png", "A · Compact dropdown",
                         "Anchored under About us, two grouped columns, quiet labels.",
                         "One showreel link and the tagline in a footer strip."},
@@ -700,6 +1172,30 @@ public class MenuConcepts {
                 {"E-mobile-drill-in.png", "E · Mobile drill-in",
                         "Short top-level list; About us slides in as one",
                         "grouped list with the showreel at the top."},
+        });
+
+        servicesA(bg, blur).save(new File(dir, "S1-compact-dropdown.png"));
+        servicesB(bg, blur).save(new File(dir, "S2-discipline-rail.png"));
+        servicesC(bg, blur).save(new File(dir, "S3-discipline-cards.png"));
+        servicesD(bg, blur).save(new File(dir, "S4-editorial.png"));
+        servicesE(bg, blur).save(new File(dir, "S5-expanding-frames.png"));
+        overview(dir, "00-services-overview.png", "pearldrop.com v3 — Services menu",
+                "Live-action's 15 items regrouped into Formats, Events and Specialist so no column becomes a wall.", new String[][]{
+                {"S1-compact-dropdown.png", "S1 · Compact dropdown",
+                        "Live-action gets a tinted double column with three sub-groups;",
+                        "the three short disciplines share the other two columns."},
+                {"S2-discipline-rail.png", "S2 · Discipline rail",
+                        "Pick a discipline on the left, its services fill the right.",
+                        "Column lengths no longer matter. Featured reel on the end."},
+                {"S3-discipline-cards.png", "S3 · Discipline cards",
+                        "Four equal cards with drawn artwork; Live-action shows its",
+                        "top five plus a link to all 15, so the cards stay even."},
+                {"S4-editorial.png", "S4 · Editorial",
+                        "Disciplines as big numbered type; the hovered one",
+                        "opens its grouped services and a talk-to-a-producer card."},
+                {"S5-expanding-frames.png", "S5 · Expanding frames",
+                        "Four full-bleed frames; hovering one widens it into a",
+                        "viewfinder with services as chips. The showpiece option."},
         });
         System.out.println("Wrote concepts to " + dir.getAbsolutePath());
     }
